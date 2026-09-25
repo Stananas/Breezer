@@ -329,8 +329,9 @@ impl ApiClient {
                 .or_else(|| item["title"].as_str())
                 .unwrap_or("Untitled playlist")
                 .to_string();
-            let picture = item["PICTURE"]
+            let picture = item["PLAYLIST_PICTURE"]
                 .as_str()
+                .or_else(|| item["PICTURE"].as_str())
                 .or_else(|| item["picture"].as_str())
                 .unwrap_or_default()
                 .to_string();

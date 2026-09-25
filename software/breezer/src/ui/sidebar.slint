@@ -56,12 +56,12 @@ component ActionButton inherits Rectangle {
     }
 }
 
-// One playlist row: cover thumbnail + name, clickable.
+// One playlist row: cover thumbnail + name, clickable (left aligned).
 component PlaylistRow inherits Rectangle {
     in property <Palette> palette;
     in property <PlaylistInfo> playlist;
     callback clicked(string);
-    height: 40px;
+    height: 44px;
     border-radius: root.palette.radius;
     background: ta.has-hover ? root.palette.surface2 : transparent;
     ta := TouchArea {
@@ -69,27 +69,30 @@ component PlaylistRow inherits Rectangle {
         mouse-cursor: pointer;
     }
     HorizontalLayout {
-        padding-left: 4px;
-        spacing: 8px;
+        padding-left: 2px;
+        spacing: 10px;
         alignment: center;
         Rectangle {
-            width: 32px;
-            height: 32px;
-            border-radius: 6px;
+            width: 40px;
+            height: 40px;
+            border-radius: 8px;
             clip: true;
             background: root.palette.surface2;
             Image {
-                width: 32px;
-                height: 32px;
+                width: 40px;
+                height: 40px;
                 source: root.playlist.cover;
+                image-fit: cover;
             }
         }
         Text {
             text: root.playlist.title;
             horizontal-stretch: 1;
             color: root.palette.text;
-            font-size: 12px;
+            font-size: 13px;
+            font-weight: 600;
             overflow: elide;
+            vertical-alignment: center;
         }
     }
 }
