@@ -142,9 +142,11 @@ component DockShell inherits Rectangle {
                         auth-state: root.auth-state;
                         current-view: root.current-view;
                         version-status: root.version-status;
+                        playlists: root.playlist-results;
                         view-requested(v) => root.view-requested(v);
                         connect-requested(arl) => root.connect-requested(arl);
                         open-browser-requested => root.open-browser-requested();
+                        playlist-selected(id) => root.playlist-selected(id);
                     }
                     QueuePanel {
                         visible: root.left-panel == "queue";
@@ -197,9 +199,11 @@ component DockShell inherits Rectangle {
                         auth-state: root.auth-state;
                         current-view: root.current-view;
                         version-status: root.version-status;
+                        playlists: root.playlist-results;
                         view-requested(v) => root.view-requested(v);
                         connect-requested(arl) => root.connect-requested(arl);
                         open-browser-requested => root.open-browser-requested();
+                        playlist-selected(id) => root.playlist-selected(id);
                     }
                     QueuePanel {
                         visible: root.right-panel == "queue";

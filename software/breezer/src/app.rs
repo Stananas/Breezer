@@ -467,6 +467,7 @@ fn run_gui() -> Result<()> {
             let mut api = ApiClient::from_config(&cfg)?;
             let mut player = Engine::new();
             let mut queue: PlayQueue<TrackCard> = PlayQueue::new();
+            let mut playlists_cache: Vec<PlaylistCard> = Vec::new();
 
             // session_id + license_token are session-scoped (not persisted):
             // re-validate the stored ARL at startup to refresh them.
@@ -512,6 +513,31 @@ fn run_gui() -> Result<()> {
                             Ok(None) => {}
                             Err(e) => log::debug!("last played unavailable: {e}"),
                         }
+
+                        // Pre-load the playlists list for the sidebar.
+                        if playlists_cache.is_empty() {
+                            match api.playlists().await {
+                                Ok(list) => {
+                                    let urls: Vec<String> = list
+                                        .iter()
+                                        .map(|p| playlist_cover_url(&p.picture_hash))
+                                        .collect();
+                                    covers.ensure(&urls).await;
+                                    playlists_cache = list
+                                        .into_iter()
+                                        .map(|p| PlaylistCard {
+                                            id: p.id.to_string(),
+                                            title: p.title,
+                                            cover_url: playlist_cover_url(&p.picture_hash),
+                                        })
+                                        .collect();
+                                    let _ = evt_tx2
+                                        .send(Evt::Playlists(playlists_cache.clone()))
+                                        .await;
+                                }
+                                Err(e) => log::debug!("playlists prefetch failed: {e}"),
+                            }
+                        }
                     }
                     Err(e) => {
                         log::warn!("stored ARL no longer valid: {e}");
@@ -525,7 +551,6 @@ fn run_gui() -> Result<()> {
             let mut layout = layout;
             let plugins = PluginRegistry::with_system();
             let mut last_cards: Vec<TrackCard> = Vec::new();
-            let mut playlists_cache: Vec<PlaylistCard> = Vec::new();
 
             let _ = evt_tx2.send(Evt::PlayerEnabled(player.has_device())).await;
 

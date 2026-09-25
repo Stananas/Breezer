@@ -43,6 +43,9 @@ msgstr "Afficher la file"
 msgid "Loading your playlists…"
 msgstr "Chargement de vos playlists…"
 
+msgid "Pick a playlist from the sidebar."
+msgstr "Choisissez une playlist dans la barre latérale."
+
 msgid "← Playlists"
 msgstr "← Playlists"
 

@@ -3,53 +3,6 @@
 
 import { CoverCard, Palette, PlaylistInfo, TrackInfo } from "./elements.slint";
 
-// One playlist row in the Playlists view.
-component PlaylistCard inherits Rectangle {
-    in property <Palette> palette;
-    in property <PlaylistInfo> playlist;
-    callback clicked(string);
-    height: 64px;
-    border-radius: root.palette.radius;
-    background: ta.has-hover ? root.palette.surface2 : root.palette.surface;
-    ta := TouchArea {
-        clicked => root.clicked(root.playlist.id);
-        mouse-cursor: pointer;
-    }
-    HorizontalLayout {
-        padding: 8px;
-        spacing: 12px;
-        alignment: center;
-        Rectangle {
-            width: 48px;
-            height: 48px;
-            border-radius: 8px;
-            clip: true;
-            background: root.palette.surface2;
-            Image {
-                width: 48px;
-                height: 48px;
-                source: root.playlist.cover;
-            }
-        }
-        VerticalLayout {
-            horizontal-stretch: 1;
-            spacing: 2px;
-            alignment: center;
-            Text {
-                text: root.playlist.title;
-                color: root.palette.text;
-                font-weight: 600;
-                overflow: elide;
-            }
-        }
-        Text {
-            text: "›";
-            color: root.palette.text-secondary;
-            font-size: 20px;
-        }
-    }
-}
-
 // Small selectable chip (language / theme).
 component Chip inherits Rectangle {
     in property <Palette> palette;
@@ -246,7 +199,8 @@ export component ContentView inherits Rectangle {
     }
 
     // ----------------------------------------------------------------
-    // PLAYLISTS VIEW
+    // PLAYLISTS VIEW (the list itself lives in the sidebar — here we just
+    // point the user there when the tab is opened).
     // ----------------------------------------------------------------
     if root.current-view == "playlists": Rectangle {
         background: root.palette.bg;
@@ -272,24 +226,11 @@ export component ContentView inherits Rectangle {
                     font-size: 12px;
                 }
             }
-            if root.playlist-results.length == 0:
-                Text {
-                    text: @tr("Loading your playlists…");
-                    color: root.palette.text-secondary;
-                }
-            if root.playlist-results.length > 0:
-                Flickable {
-                    vertical-stretch: 1;
-                    VerticalLayout {
-                        spacing: 8px;
-                        padding: 2px;
-                        for p in root.playlist-results: PlaylistCard {
-                            palette: root.palette;
-                            playlist: p;
-                            clicked(id) => root.playlist-selected(id);
-                        }
-                    }
-                }
+            Text {
+                text: @tr("Pick a playlist from the sidebar.");
+                color: root.palette.text-secondary;
+                font-size: 14px;
+            }
         }
     }
 
