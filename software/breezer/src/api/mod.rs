@@ -423,4 +423,80 @@ impl ApiClient {
         }
         Ok(out)
     }
+
+    // ---------------------------------------------------------------------
+    // "Last played" (cross-device resume, `pageProfile tab=history`)
+    // ---------------------------------------------------------------------
+
+    /// Last played track from Deezer's listening history — the same history
+    /// the official apps use, so Breezer resumes whatever you last listened
+    /// to on any device.
+    pub async fn last_played(&self) -> Result<Option<models::Track>> {
+        let uid = self
+            .user_id
+            .ok_or_else(|| Error::Auth("not authenticated — connect with your ARL first".into()))?;
+        let resp = self
+            .gateway_call(
+                "deezer.pageProfile",
+                serde_json::json!({
+                    "profile_id": uid,
+                    "user_id": uid,
+                    "USER_ID": uid,
+                    "tab": "history",
+                }),
+            )
+            .await?;
+        let items = resp["results"]["TAB"]["history"]["data"]
+            .as_array()
+            .cloned()
+            .unwrap_or_default();
+        let first = match items.first() {
+            Some(t) => t,
+            None => return Ok(None),
+        };
+        let id = first["SNG_ID"]
+            .as_u64()
+            .or_else(|| first["SNG_ID"].as_str().and_then(|s| s.parse::<u64>().ok()))
+            .unwrap_or(0);
+        if id == 0 {
+            return Ok(None);
+        }
+        let title = first["SNG_TITLE"].as_str().unwrap_or("Unknown track").to_string();
+        let artist = first["ART_NAME"].as_str().unwrap_or("Unknown artist").to_string();
+        let cover = first["ALB_PICTURE"]
+            .as_str()
+            .filter(|s| !s.is_empty())
+            .map(|h| {
+                format!("https://e-cdns-images.dzcdn.net/images/cover/{h}/250x250-000000-80-0-0.jpg")
+            })
+            .unwrap_or_default();
+        let duration = first["DURATION"]
+            .as_u64()
+            .or_else(|| first["DURATION"].as_str().and_then(|s| s.parse::<u64>().ok()))
+            .unwrap_or(0) as u32;
+        Ok(Some(models::Track {
+            id,
+            title,
+            duration,
+            artist: models::Artist { name: artist },
+            album: models::Album {
+                title: String::new(),
+                cover_medium: cover,
+                cover_big: String::new(),
+            },
+        }))
+    }
+
+    /// Track duration via the public API (history items often lack DURATION).
+    pub async fn track_duration(&self, id: u64) -> Option<u32> {
+        let url = format!("{API_BASE}/track/{id}");
+        match self.http.get(&url).send().await {
+            Ok(r) if r.status().is_success() => {
+                r.json::<serde_json::Value>().await.ok().and_then(|v| {
+                    v["duration"].as_u64().map(|d| d as u32)
+                })
+            }
+            _ => None,
+        }
+    }
 }

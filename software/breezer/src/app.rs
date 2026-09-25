@@ -221,6 +221,14 @@ fn run_playlists_test() -> Result<()> {
             }
             Err(e) => println!("playlists failed: {e}"),
         }
+        match api.last_played().await {
+            Ok(Some(t)) => println!(
+                "last played: {} — {} (id {})",
+                t.title, t.artist.name, t.id
+            ),
+            Ok(None) => println!("no listening history"),
+            Err(e) => println!("last played error: {e}"),
+        }
         Ok(())
     })
 }
@@ -294,7 +302,8 @@ fn run_gui() -> Result<()> {
     window.set_theme_id(SharedString::from(cfg.theme_id.as_str()));
     window.set_ui_language(SharedString::from(cfg.language.as_str()));
     window.set_username(SharedString::from(cfg.username.clone().unwrap_or_default()));
-    window.set_auth_state(if cfg.arl.is_some() { 1 } else { 0 });
+    let already_connected = cfg.arl.is_some();
+    window.set_auth_state(if already_connected { 2 } else { 0 });
     window.set_current_view(SharedString::from("home"));
     window.set_view_title(SharedString::from(i18n.t("nav.home")));
     window.set_version_status(SharedString::from(format!("Breezer v{}", env!("CARGO_PKG_VERSION"))));
@@ -306,7 +315,7 @@ fn run_gui() -> Result<()> {
     window.set_queue_index(-1);
     window.set_onboard_status(SharedString::from(""));
     let onboarding_seen = cfg.onboarding_done;
-    window.set_onboarding_visible(!onboarding_seen);
+    window.set_onboarding_visible(!onboarding_seen && !already_connected);
     window.set_time_format(SharedString::from(cfg.time_format.as_str()));
 
     let layout = LayoutProfile::load();
@@ -456,6 +465,9 @@ fn run_gui() -> Result<()> {
             let mut cfg = cfg;
             let mut i18n = i18n;
             let mut api = ApiClient::from_config(&cfg)?;
+            let mut player = Engine::new();
+            let mut queue: PlayQueue<TrackCard> = PlayQueue::new();
+
             // session_id + license_token are session-scoped (not persisted):
             // re-validate the stored ARL at startup to refresh them.
             if let Some(arl) = cfg.arl.clone() {
@@ -463,12 +475,53 @@ fn run_gui() -> Result<()> {
                     Ok(s) => {
                         log::info!("session refreshed for {}", s.username);
                         api.set_session(arl, &s);
+                        // Already connected → skip the wizard and reflect the
+                        // logged-in state immediately.
+                        if !cfg.onboarding_done {
+                            cfg.onboarding_done = true;
+                            let _ = cfg.save();
+                        }
+                        let _ = evt_tx2.send(Evt::OnboardingDone).await;
+                        let _ = evt_tx2
+                            .send(Evt::Auth { state: 2, username: s.username })
+                            .await;
+
+                        // Cross-device resume: play the last listened track.
+                        match api.last_played().await {
+                            Ok(Some(t)) => {
+                                let duration = if t.duration > 0 {
+                                    t.duration as f32
+                                } else {
+                                    api.track_duration(t.id).await.unwrap_or(0) as f32
+                                };
+                                let card = TrackCard {
+                                    id: t.id as i32,
+                                    title: t.title,
+                                    artist: t.artist.name,
+                                    album: String::new(),
+                                    cover_url: t.album.cover_medium,
+                                    duration,
+                                };
+                                let cover_url = card.cover_url.clone();
+                                covers.ensure(&[cover_url]).await;
+                                let _ = evt_tx2.send(Evt::TrackChanged(card.clone())).await;
+                                queue.set_tracks(vec![card.clone()], 0);
+                                log::info!("resuming last played: {}", card.title);
+                                start_streaming(card, &mut player, &api, &evt_tx2, &i18n).await;
+                            }
+                            Ok(None) => {}
+                            Err(e) => log::debug!("last played unavailable: {e}"),
+                        }
                     }
-                    Err(e) => log::warn!("stored ARL no longer valid: {e}"),
+                    Err(e) => {
+                        log::warn!("stored ARL no longer valid: {e}");
+                        let _ = evt_tx2
+                            .send(Evt::Auth { state: 1, username: String::new() })
+                            .await;
+                    }
                 }
             }
-            let mut player = Engine::new();
-            let mut queue: PlayQueue<TrackCard> = PlayQueue::new();
+
             let mut layout = layout;
             let plugins = PluginRegistry::with_system();
             let mut last_cards: Vec<TrackCard> = Vec::new();

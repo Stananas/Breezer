@@ -20,8 +20,11 @@ component NavItem inherits Rectangle {
         alignment: center;
         Text {
             text: root.label;
+            width: 100%;
+            height: 100%;
             color: root.current == root.value ? root.palette.primary : root.palette.text;
             font-weight: 600;
+            vertical-alignment: center;
         }
     }
 }
@@ -43,6 +46,8 @@ component ActionButton inherits Rectangle {
     }
     Text {
         text: root.label;
+        width: 100%;
+        height: 100%;
         color: root.enabled && root.primary ? root.palette.on-primary : root.palette.text;
         font-size: 12px;
         horizontal-alignment: center;
@@ -115,6 +120,7 @@ export component Sidebar inherits Rectangle {
                 arl-field := TextInput {
                     height: 34px;
                     font-family: "monospace";
+                    vertical-alignment: center;
                     text <=> root.arl-input;
                     edited => { root.arl-input = arl-field.text; }
                     color: root.palette.text;
