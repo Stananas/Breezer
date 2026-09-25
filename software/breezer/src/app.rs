@@ -40,6 +40,7 @@ enum Cmd {
     Volume(f32),
     Shuffle,
     Repeat,
+    PlayRecent(i32),
     Dock(String, String),
     ToggleRight,
     Theme(String),
@@ -151,6 +152,7 @@ enum Evt {
     PlayerEnabled(bool),
     Shuffle(bool),
     Repeat(i32),
+    Recents(Vec<TrackCard>),
     OnboardingDone,
 }
 
@@ -444,6 +446,12 @@ fn run_gui() -> Result<()> {
             let _ = tx.try_send(Cmd::PlayIndex(i.max(0) as usize));
         }
     });
+    window.on_play_recent_requested({
+        let tx = cmd_tx.clone();
+        move |id: i32| {
+            let _ = tx.try_send(Cmd::PlayRecent(id));
+        }
+    });
     window.on_playlist_selected({
         let tx = cmd_tx.clone();
         move |p: Str| {
@@ -608,6 +616,7 @@ fn run_gui() -> Result<()> {
             let mut layout = layout;
             let plugins = PluginRegistry::with_system();
             let mut last_cards: Vec<TrackCard> = Vec::new();
+            let mut recent_cards: Vec<TrackCard> = Vec::new();
             let mut shuffle_on = false;
             let mut repeat_mode = RepeatMode::Off;
 
@@ -635,6 +644,33 @@ fn run_gui() -> Result<()> {
                     let _ = evt_tx2.send(Evt::Status(String::new())).await;
                 }
                 Err(e) => log::debug!("chart prefetch failed: {e}"),
+            }
+
+            // Home page "Recently played" shelf: the full listening history
+            // (newest first), so the first shelf is not limited to one track.
+            match api.recent_played(12).await {
+                Ok(recent) => {
+                    let urls: Vec<String> = recent
+                        .iter()
+                        .map(|t| t.album.cover_medium.clone())
+                        .collect();
+                    covers.ensure(&urls).await;
+                    recent_cards = recent
+                        .into_iter()
+                        .map(|t| TrackCard {
+                            id: t.id as i32,
+                            title: t.title,
+                            artist: t.artist.name,
+                            album: t.album.title,
+                            cover_url: t.album.cover_medium,
+                            duration: t.duration as f32,
+                        })
+                        .collect();
+                    if !recent_cards.is_empty() {
+                        let _ = evt_tx2.send(Evt::Recents(recent_cards.clone())).await;
+                    }
+                }
+                Err(e) => log::debug!("recent history prefetch failed: {e}"),
             }
 
             let _ = evt_tx2.send(Evt::PlayerEnabled(player.has_device())).await;
@@ -678,6 +714,16 @@ fn run_gui() -> Result<()> {
                                     )
                                 };
                                 let _ = evt_tx2.send(Evt::Status(msg)).await;
+                                // Searching opens the results shelf (Explorer),
+                                // like Deezer — Home keeps its curated shelves.
+                                if !last_cards.is_empty() {
+                                    let _ = evt_tx2
+                                        .send(Evt::View {
+                                            view: "explore".into(),
+                                            title: i18n.t("nav.explore"),
+                                        })
+                                        .await;
+                                }
                             }
                             Err(e) => {
                                 log::warn!("search failed: {e}");
@@ -847,6 +893,22 @@ fn run_gui() -> Result<()> {
                             play_card(
                                 &last_cards,
                                 card.id as u64,
+                                &mut player,
+                                &api,
+                                &mut queue,
+                                &mut cfg,
+                                &evt_tx2,
+                                &i18n,
+                                &plugins,
+                            )
+                            .await;
+                        }
+                    }
+                    Cmd::PlayRecent(id) => {
+                        if recent_cards.iter().any(|c| c.id == id) {
+                            play_card(
+                                &recent_cards,
+                                id as u64,
                                 &mut player,
                                 &api,
                                 &mut queue,
@@ -1273,6 +1335,10 @@ fn apply_event(ui: &MainWindow, evt: Evt, covers: &Covers) {
         Evt::Results(cards) => {
             let items: Vec<TrackInfo> = cards.iter().map(|c| c.to_ui(covers)).collect();
             ui.set_search_results(ModelRc::from(std::rc::Rc::new(VecModel::from(items))));
+        }
+        Evt::Recents(cards) => {
+            let items: Vec<TrackInfo> = cards.iter().map(|c| c.to_ui(covers)).collect();
+            ui.set_recent_results(ModelRc::from(std::rc::Rc::new(VecModel::from(items))));
         }
         Evt::Playlists(cards) => {
             let items: Vec<crate::PlaylistInfo> = cards

@@ -201,3 +201,12 @@ msgstr "Pause"
 
 msgid "Trending"
 msgstr "Tendances"
+
+msgid "Recently played"
+msgstr "Récemment écoutés"
+
+msgid "Your playlists"
+msgstr "Vos playlists"
+
+msgid "See what's trending"
+msgstr "Découvrir les tendances"

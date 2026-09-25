@@ -65,6 +65,7 @@ component DockShell inherits Rectangle {
     in property <string> current-view;
     in property <string> view-title;
     in property <[TrackInfo]> search-results;
+    in property <[TrackInfo]> recent-results;
     in property <[PlaylistInfo]> playlist-results;
     in property <string> search-status;
     in property <bool> playing;
@@ -95,6 +96,8 @@ component DockShell inherits Rectangle {
     callback playlist-selected(string);
     callback back-requested();
     callback play-index-requested(int);
+    callback play-recent-requested(int);
+    callback explore-requested();
     callback toggle-requested();
     callback prev-requested();
     callback next-requested();
@@ -179,6 +182,7 @@ component DockShell inherits Rectangle {
                     height: 100%;
                     palette: root.palette;
                     results: root.search-results;
+                    recents: root.recent-results;
                     playlist-results: root.playlist-results;
                     status: root.search-status;
                     view-title: root.view-title;
@@ -191,6 +195,8 @@ component DockShell inherits Rectangle {
                     search-requested(q) => root.search-requested(q);
                     play-requested(id) => root.play-requested(id);
                     playlist-selected(id) => root.playlist-selected(id);
+                    play-recent-requested(id) => root.play-recent-requested(id);
+                    explore-requested => root.explore-requested();
                     toggle-requested => root.toggle-requested();
                     back-requested => root.back-requested();
                     theme-changed(s) => root.theme-changed(s);
@@ -366,6 +372,7 @@ export component MainWindow inherits Window {
     in property <string> current-view;
 
     in property <[TrackInfo]> search-results;
+    in property <[TrackInfo]> recent-results;
     in property <[PlaylistInfo]> playlist-results;
     in property <string> search-status;
     in property <string> view-title;
@@ -404,6 +411,8 @@ export component MainWindow inherits Window {
     callback playlist-selected(string);
     callback back-requested();
     callback play-index-requested(int);
+    callback play-recent-requested(int);
+    callback explore-requested();
     callback toggle-requested();
     callback prev-requested();
     callback next-requested();
@@ -434,6 +443,7 @@ export component MainWindow inherits Window {
         auth-state <=> root.auth-state;
         current-view: root.current-view;
         search-results <=> root.search-results;
+        recent-results <=> root.recent-results;
         playlist-results <=> root.playlist-results;
         search-status <=> root.search-status;
         view-title <=> root.view-title;
@@ -461,9 +471,11 @@ export component MainWindow inherits Window {
         open-browser-requested => root.open-browser-requested();
         view-requested(v) => root.view-requested(v);
         play-requested(id) => root.play-requested(id);
+        explore-requested => root.view-requested("explore");
         playlist-selected(id) => root.playlist-selected(id);
         back-requested => root.back-requested();
         play-index-requested(i) => root.play-index-requested(i);
+        play-recent-requested(id) => root.play-recent-requested(id);
         toggle-requested => root.toggle-requested();
         prev-requested => root.prev-requested();
         next-requested => root.next-requested();

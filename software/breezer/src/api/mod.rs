@@ -429,10 +429,8 @@ impl ApiClient {
     // "Last played" (cross-device resume, `pageProfile tab=history`)
     // ---------------------------------------------------------------------
 
-    /// Last played track from Deezer's listening history — the same history
-    /// the official apps use, so Breezer resumes whatever you last listened
-    /// to on any device.
-    pub async fn last_played(&self) -> Result<Option<models::Track>> {
+    /// Recently played tracks from Deezer's listening history (newest first).
+    pub async fn recent_played(&self, limit: usize) -> Result<Vec<models::Track>> {
         let uid = self
             .user_id
             .ok_or_else(|| Error::Auth("not authenticated — connect with your ARL first".into()))?;
@@ -451,41 +449,16 @@ impl ApiClient {
             .as_array()
             .cloned()
             .unwrap_or_default();
-        let first = match items.first() {
-            Some(t) => t,
-            None => return Ok(None),
-        };
-        let id = first["SNG_ID"]
-            .as_u64()
-            .or_else(|| first["SNG_ID"].as_str().and_then(|s| s.parse::<u64>().ok()))
-            .unwrap_or(0);
-        if id == 0 {
-            return Ok(None);
-        }
-        let title = first["SNG_TITLE"].as_str().unwrap_or("Unknown track").to_string();
-        let artist = first["ART_NAME"].as_str().unwrap_or("Unknown artist").to_string();
-        let cover = first["ALB_PICTURE"]
-            .as_str()
-            .filter(|s| !s.is_empty())
-            .map(|h| {
-                format!("https://e-cdns-images.dzcdn.net/images/cover/{h}/250x250-000000-80-0-0.jpg")
-            })
-            .unwrap_or_default();
-        let duration = first["DURATION"]
-            .as_u64()
-            .or_else(|| first["DURATION"].as_str().and_then(|s| s.parse::<u64>().ok()))
-            .unwrap_or(0) as u32;
-        Ok(Some(models::Track {
-            id,
-            title,
-            duration,
-            artist: models::Artist { name: artist },
-            album: models::Album {
-                title: String::new(),
-                cover_medium: cover,
-                cover_big: String::new(),
-            },
-        }))
+        Ok(items
+            .into_iter()
+            .filter_map(parse_history_track)
+            .take(limit)
+            .collect())
+    }
+
+    /// Last played track — first item of the listening history.
+    pub async fn last_played(&self) -> Result<Option<models::Track>> {
+        Ok(self.recent_played(1).await?.into_iter().next())
     }
 
     /// Track duration via the public API (history items often lack DURATION).
@@ -500,4 +473,40 @@ impl ApiClient {
             _ => None,
         }
     }
+}
+
+/// Parse a Deezer "history" item (JSON blob) into a `Track`.
+/// Covers come from the `ALB_PICTURE` hash (same CDN pattern as the rest).
+fn parse_history_track(v: serde_json::Value) -> Option<models::Track> {
+    let id = v["SNG_ID"]
+        .as_u64()
+        .or_else(|| v["SNG_ID"].as_str().and_then(|s| s.parse::<u64>().ok()))
+        .unwrap_or(0);
+    if id == 0 {
+        return None;
+    }
+    let title = v["SNG_TITLE"].as_str().unwrap_or("Unknown track").to_string();
+    let artist = v["ART_NAME"].as_str().unwrap_or("Unknown artist").to_string();
+    let cover = v["ALB_PICTURE"]
+        .as_str()
+        .filter(|s| !s.is_empty())
+        .map(|h| {
+            format!("https://e-cdns-images.dzcdn.net/images/cover/{h}/250x250-000000-80-0-0.jpg")
+        })
+        .unwrap_or_default();
+    let duration = v["DURATION"]
+        .as_u64()
+        .or_else(|| v["DURATION"].as_str().and_then(|s| s.parse::<u64>().ok()))
+        .unwrap_or(0) as u32;
+    Some(models::Track {
+        id,
+        title,
+        duration,
+        artist: models::Artist { name: artist },
+        album: models::Album {
+            title: String::new(),
+            cover_medium: cover,
+            cover_big: String::new(),
+        },
+    })
 }
