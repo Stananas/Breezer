@@ -163,6 +163,7 @@ export component Sidebar inherits Rectangle {
             }
 
         NavItem { palette: root.palette; label: @tr("Home"); icon: @image-url("icons/home.png"); value: "home"; current: root.current-view; clicked(v) => root.view-requested(v); }
+        NavItem { palette: root.palette; label: @tr("Explore"); icon: @image-url("icons/compass.png"); value: "explore"; current: root.current-view; clicked(v) => root.view-requested(v); }
         NavItem { palette: root.palette; label: @tr("Favorites"); icon: @image-url("icons/heart.png"); value: "favorites"; current: root.current-view; clicked(v) => root.view-requested(v); }
         NavItem { palette: root.palette; label: @tr("Playlists"); icon: @image-url("icons/list-music.png"); value: "playlists"; current: root.current-view; clicked(v) => root.view-requested(v); }
         NavItem { palette: root.palette; label: @tr("Settings"); icon: @image-url("icons/settings.png"); value: "settings"; current: root.current-view; clicked(v) => root.view-requested(v); }

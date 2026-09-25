@@ -13,8 +13,11 @@ msgstr "Non connecté·e"
 msgid "Home"
 msgstr "Accueil"
 
+msgid "Explore"
+msgstr "Explorer"
+
 msgid "Favorites"
-msgstr "Favoris"
+msgstr "Coups de cœur"
 
 msgid "Playlists"
 msgstr "Playlists"

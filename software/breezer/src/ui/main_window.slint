@@ -75,6 +75,8 @@ component DockShell inherits Rectangle {
     in property <float> volume;
     in property <string> volume-label;
     in property <TrackInfo> current-track;
+    in property <bool> shuffle-on;
+    in property <int> repeat-mode;
     in property <bool> player-enabled;
     in property <string> theme-id;
     in property <string> ui-language;
@@ -96,6 +98,8 @@ component DockShell inherits Rectangle {
     callback toggle-requested();
     callback prev-requested();
     callback next-requested();
+    callback shuffle-requested();
+    callback repeat-requested();
     callback seek-requested(float);
     callback volume-requested(float);
     callback dock-requested(string, string);
@@ -257,9 +261,13 @@ component DockShell inherits Rectangle {
             volume: root.volume;
             volume-label: root.volume-label;
             current-track: root.current-track;
+            shuffle-on: root.shuffle-on;
+            repeat-mode: root.repeat-mode;
             toggle-requested => root.toggle-requested();
             prev-requested => root.prev-requested();
             next-requested => root.next-requested();
+            shuffle-requested => root.shuffle-requested();
+            repeat-requested => root.repeat-requested();
             seek-requested(v) => root.seek-requested(v);
             volume-requested(v) => root.volume-requested(v);
         }
@@ -371,6 +379,8 @@ export component MainWindow inherits Window {
     in property <string> volume-label;
     in property <TrackInfo> current-track;
     in property <bool> player-enabled;
+    in property <bool> shuffle-on;
+    in property <int> repeat-mode;
 
     in property <string> left-panel;
     in property <string> right-panel;
@@ -399,6 +409,8 @@ export component MainWindow inherits Window {
     callback next-requested();
     callback seek-requested(float);
     callback volume-requested(float);
+    callback shuffle-requested();
+    callback repeat-requested();
     callback dock-requested(string, string);
     callback toggle-right-panel-requested();
     callback theme-changed(string);
@@ -420,7 +432,7 @@ export component MainWindow inherits Window {
         palette <=> root.palette;
         username <=> root.username;
         auth-state <=> root.auth-state;
-        current-view <=> root.current-view;
+        current-view: root.current-view;
         search-results <=> root.search-results;
         playlist-results <=> root.playlist-results;
         search-status <=> root.search-status;
@@ -434,6 +446,8 @@ export component MainWindow inherits Window {
         volume-label <=> root.volume-label;
         current-track <=> root.current-track;
         player-enabled <=> root.player-enabled;
+        shuffle-on <=> root.shuffle-on;
+        repeat-mode <=> root.repeat-mode;
         left-panel <=> root.left-panel;
         right-panel <=> root.right-panel;
         bottom-panel <=> root.bottom-panel;
@@ -453,6 +467,8 @@ export component MainWindow inherits Window {
         toggle-requested => root.toggle-requested();
         prev-requested => root.prev-requested();
         next-requested => root.next-requested();
+        shuffle-requested => root.shuffle-requested();
+        repeat-requested => root.repeat-requested();
         seek-requested(v) => root.seek-requested(v);
         volume-requested(v) => root.volume-requested(v);
         dock-requested(p, t) => root.dock-requested(p, t);

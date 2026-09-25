@@ -16,9 +16,13 @@ export component PlayerBar inherits Rectangle {
     in property <float> volume;
     in property <string> volume-label;
     in property <TrackInfo> current-track;
+    in property <bool> shuffle-on;
+    in property <int> repeat-mode;
     callback toggle-requested();
     callback prev-requested();
     callback next-requested();
+    callback shuffle-requested();
+    callback repeat-requested();
     callback seek-requested(float);
     callback volume-requested(float);
 
@@ -82,18 +86,39 @@ export component PlayerBar inherits Rectangle {
     // CENTER — transport row + duration slider row
     // ------------------------------------------------------------------
     Rectangle {
-        x: 312px + (root.width - 312px - 176px - 132px) / 2;
+        x: 312px + (root.width - 312px - 176px - 188px) / 2;
         y: 10px;
-        width: 132px;
+        width: 188px;
         height: 44px;
+        // Shuffle — highlighted when active (official Deezer icon).
+        Rectangle {
+            x: 0px;
+            y: 4px;
+            width: 36px;
+            height: 36px;
+            border-radius: root.palette.radius;
+            background: root.shuffle-on ? root.palette.primary : (shuffle-ta.has-hover ? root.palette.surface2 : transparent);
+            shuffle-ta := TouchArea {
+                clicked => root.shuffle-requested();
+                mouse-cursor: pointer;
+            }
+            Image {
+                x: 9px;
+                y: 9px;
+                width: 18px;
+                height: 18px;
+                source: @image-url("icons/shuffle.png");
+                colorize: root.shuffle-on ? root.palette.on-primary : (shuffle-ta.has-hover ? root.palette.primary : root.palette.text);
+            }
+        }
         IconBtn {
-            x: 0px; y: 4px;
+            x: 36px; y: 4px;
             palette: root.palette;
             icon: @image-url("icons/skip-back.png");
             clicked => root.prev-requested();
         }
         pb := Rectangle {
-            x: 44px;
+            x: 72px;
             y: 0px;
             width: 44px;
             height: 44px;
@@ -115,10 +140,50 @@ export component PlayerBar inherits Rectangle {
             }
         }
         IconBtn {
-            x: 96px; y: 4px;
+            x: 116px; y: 4px;
             palette: root.palette;
             icon: @image-url("icons/skip-forward.png");
             clicked => root.next-requested();
+        }
+        // Repeat — cycles Off → All → One (highlighted when active).
+        Rectangle {
+            x: 152px;
+            y: 4px;
+            width: 36px;
+            height: 36px;
+            border-radius: root.palette.radius;
+            background: root.repeat-mode > 0 ? root.palette.primary : (repeat-ta.has-hover ? root.palette.surface2 : transparent);
+            repeat-ta := TouchArea {
+                clicked => root.repeat-requested();
+                mouse-cursor: pointer;
+            }
+            Image {
+                x: 8px;
+                y: 8px;
+                width: 20px;
+                height: 20px;
+                source: @image-url("icons/repeat.png");
+                colorize: root.repeat-mode > 0 ? root.palette.on-primary : (repeat-ta.has-hover ? root.palette.primary : root.palette.text);
+            }
+            // Small "1" badge for repeat-one.
+            if root.repeat-mode == 2: Rectangle {
+                x: 20px;
+                y: 4px;
+                width: 12px;
+                height: 12px;
+                border-radius: 6px;
+                background: root.palette.surface2;
+                Text {
+                    text: "1";
+                    width: 100%;
+                    height: 100%;
+                    font-size: 8px;
+                    font-weight: 800;
+                    horizontal-alignment: center;
+                    vertical-alignment: center;
+                    color: root.palette.primary;
+                }
+            }
         }
     }
 
@@ -215,7 +280,8 @@ export component PlayerBar inherits Rectangle {
             y: (root.height + 16px) / 2;
             width: 18px;
             height: 18px;
-            source: root.volume > 0 ? @image-url("icons/volume-2.png") : @image-url("icons/volume-x.png");
+            source: root.volume <= 0 ? @image-url("icons/volume-x.png") :
+                     (root.volume < 66 ? @image-url("icons/volume-1.png") : @image-url("icons/volume-2.png"));
             colorize: root.palette.text-secondary;
         }
         vsl := BreezerSlider {

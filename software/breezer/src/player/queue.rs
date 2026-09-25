@@ -53,6 +53,12 @@ impl<T: Clone> PlayQueue<T> {
         self.current()
     }
 
+    /// Jump to a specific index (used by shuffle). Clamped to the queue bounds.
+    pub fn jump_to(&mut self, i: usize) -> Option<&T> {
+        self.index = Some(i.min(self.tracks.len().saturating_sub(1)));
+        self.current()
+    }
+
     pub fn prev(&mut self) -> Option<&T> {
         self.index = self.index.map(|i| i.saturating_sub(1));
         self.current()

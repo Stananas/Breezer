@@ -38,6 +38,8 @@ enum Cmd {
     Next,
     Seek(f32),
     Volume(f32),
+    Shuffle,
+    Repeat,
     Dock(String, String),
     ToggleRight,
     Theme(String),
@@ -50,6 +52,52 @@ enum Cmd {
     FinishOnboarding,
     QuitApp,
     TimeFormat(String),
+}
+
+/// Repeat mode of the player (Deezer-style): off, whole queue, single track.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum RepeatMode {
+    Off,
+    All,
+    One,
+}
+
+impl RepeatMode {
+    /// Cycle Off → All → One → Off (the Deezer repeat button behaviour).
+    fn cycle(&self) -> Self {
+        match self {
+            RepeatMode::Off => RepeatMode::All,
+            RepeatMode::All => RepeatMode::One,
+            RepeatMode::One => RepeatMode::Off,
+        }
+    }
+    fn as_i32(&self) -> i32 {
+        match self {
+            RepeatMode::Off => 0,
+            RepeatMode::All => 1,
+            RepeatMode::One => 2,
+        }
+    }
+}
+
+/// Tiny xorshift32 PRNG (no external dependency) — picks a random queued
+/// index different from `current` (playlist "shuffle next").
+fn pick_random_other(current: usize, len: usize) -> usize {
+    debug_assert!(len > 1);
+    let nanos = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.subsec_nanos())
+        .unwrap_or(0x9e3779b9);
+    let mut x = (nanos ^ (current as u32).wrapping_mul(0x9e3779b9)) | 1;
+    x ^= x << 13;
+    x ^= x >> 17;
+    x ^= x << 5;
+    let pick = (x as usize) % (len - 1);
+    if pick >= current {
+        pick + 1
+    } else {
+        pick
+    }
 }
 
 /// Send-safe track descriptor (images are reconstructed on the UI thread).
@@ -101,6 +149,8 @@ enum Evt {
     View { view: String, title: String },
     Language(String),
     PlayerEnabled(bool),
+    Shuffle(bool),
+    Repeat(i32),
     OnboardingDone,
 }
 
@@ -316,6 +366,8 @@ fn run_gui() -> Result<()> {
     window.set_position_label(SharedString::from("0:00"));
     window.set_duration_label(SharedString::from("0:00"));
     window.set_queue_index(-1);
+    window.set_shuffle_on(false);
+    window.set_repeat_mode(0);
     window.set_onboard_status(SharedString::from(""));
     let onboarding_seen = cfg.onboarding_done;
     window.set_onboarding_visible(!onboarding_seen && !already_connected);
@@ -427,6 +479,8 @@ fn run_gui() -> Result<()> {
     window.on_toggle_requested(unary(cmd_tx.clone(), Cmd::Toggle));
     window.on_prev_requested(unary(cmd_tx.clone(), Cmd::Prev));
     window.on_next_requested(unary(cmd_tx.clone(), Cmd::Next));
+    window.on_shuffle_requested(unary(cmd_tx.clone(), Cmd::Shuffle));
+    window.on_repeat_requested(unary(cmd_tx.clone(), Cmd::Repeat));
     window.on_toggle_right_panel_requested(unary(cmd_tx.clone(), Cmd::ToggleRight));
     window.on_open_theme_editor_requested(unary(cmd_tx.clone(), Cmd::OpenThemeEditor));
     window.on_save_layout_requested(unary(cmd_tx.clone(), Cmd::SaveLayout));
@@ -554,6 +608,8 @@ fn run_gui() -> Result<()> {
             let mut layout = layout;
             let plugins = PluginRegistry::with_system();
             let mut last_cards: Vec<TrackCard> = Vec::new();
+            let mut shuffle_on = false;
+            let mut repeat_mode = RepeatMode::Off;
 
             // Seed the Home page with Deezer's trending tracks (public chart).
             match api.chart(24).await {
@@ -688,6 +744,7 @@ fn run_gui() -> Result<()> {
                     Cmd::View(v) => {
                         let title = match v.as_str() {
                             "home" => i18n.t("nav.home"),
+                            "explore" => i18n.t("nav.explore"),
                             "favorites" => i18n.t("nav.favorites"),
                             "playlists" => i18n.t("nav.playlists"),
                             "settings" => i18n.t("nav.settings"),
@@ -821,10 +878,25 @@ fn run_gui() -> Result<()> {
                         }
                     }
                     Cmd::Next => {
-                        if let Some(card) = queue.next().cloned() {
-                            let _ = evt_tx2.send(Evt::TrackChanged(card.clone())).await;
-                            start_streaming(card, &mut player, &api, &evt_tx2, &i18n).await;
-                        }
+                        advance_playback(
+                            &mut queue,
+                            shuffle_on,
+                            repeat_mode,
+                            true,
+                            &mut player,
+                            &api,
+                            &evt_tx2,
+                            &i18n,
+                        )
+                        .await;
+                    }
+                    Cmd::Shuffle => {
+                        shuffle_on = !shuffle_on;
+                        let _ = evt_tx2.send(Evt::Shuffle(shuffle_on)).await;
+                    }
+                    Cmd::Repeat => {
+                        repeat_mode = repeat_mode.cycle();
+                        let _ = evt_tx2.send(Evt::Repeat(repeat_mode.as_i32())).await;
                     }
                     Cmd::Seek(v) => {
                         player.seek(v);
@@ -981,12 +1053,17 @@ fn run_gui() -> Result<()> {
                             }
                             if player.ended() {
                                 player.stop();
-                                if let Some(card) = queue.next().cloned() {
-                                    let _ = evt_tx2.send(Evt::TrackChanged(card.clone())).await;
-                                    start_streaming(card, &mut player, &api, &evt_tx2, &i18n).await;
-                                } else {
-                                    let _ = evt_tx2.send(Evt::Playing(false)).await;
-                                }
+                                advance_playback(
+                                    &mut queue,
+                                    shuffle_on,
+                                    repeat_mode,
+                                    false,
+                                    &mut player,
+                                    &api,
+                                    &evt_tx2,
+                                    &i18n,
+                                )
+                                .await;
                             }
                         }
                     }
@@ -1139,6 +1216,54 @@ async fn start_streaming(
     }
 }
 
+/// Advance to the next queued track respecting shuffle / repeat preferences.
+/// `ignore_one` is set when the user explicitly pressed "next" (with repeat
+/// "one", manual next still moves to the following track, like Deezer).
+/// Returns true if a new (or the same) track started playing.
+#[allow(clippy::too_many_arguments)]
+async fn advance_playback(
+    queue: &mut PlayQueue<TrackCard>,
+    shuffle: bool,
+    repeat: RepeatMode,
+    ignore_one: bool,
+    player: &mut Engine,
+    api: &ApiClient,
+    evt_tx: &mpsc::Sender<Evt>,
+    i18n: &I18n,
+) -> bool {
+    let len = queue.len();
+    let card = if len == 0 {
+        None
+    } else if shuffle && len > 1 {
+        let cur = queue.index().unwrap_or(0);
+        queue.jump_to(pick_random_other(cur, len)).cloned()
+    } else if repeat == RepeatMode::One && !ignore_one {
+        queue.current().cloned() // replay the same track
+    } else {
+        let at_last = queue.index() == Some(len - 1);
+        if at_last {
+            if repeat == RepeatMode::All {
+                queue.jump_to(0).cloned() // wrap around
+            } else {
+                None // end of queue — stay put
+            }
+        } else {
+            queue.next().cloned()
+        }
+    };
+    match card {
+        Some(c) => {
+            let _ = evt_tx.send(Evt::TrackChanged(c.clone())).await;
+            start_streaming(c, player, api, evt_tx, i18n).await;
+            true
+        }
+        None => {
+            let _ = evt_tx.send(Evt::Playing(false)).await;
+            false
+        }
+    }
+}
+
 // ---------------------------------------------------------------------------
 // Event application on the UI thread
 // ---------------------------------------------------------------------------
@@ -1191,6 +1316,8 @@ fn apply_event(ui: &MainWindow, evt: Evt, covers: &Covers) {
         Evt::PositionLabel(s) => ui.set_position_label(SharedString::from(s)),
         Evt::Volume(v) => ui.set_volume(v),
         Evt::VolumeLabel(s) => ui.set_volume_label(SharedString::from(s)),
+        Evt::Shuffle(on) => ui.set_shuffle_on(on),
+        Evt::Repeat(mode) => ui.set_repeat_mode(mode),
         Evt::Layout { left, right, bottom } => {
             ui.set_left_panel(SharedString::from(left));
             ui.set_right_panel(SharedString::from(right));

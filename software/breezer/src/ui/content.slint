@@ -149,9 +149,20 @@ export component ContentView inherits Rectangle {
                 background: root.palette.surface;
                 border-width: 1px;
                 border-color: root.palette.surface2;
+                // Official Deezer search magnifier inside the field.
+                Image {
+                    x: 10px;
+                    y: 9px;
+                    width: 18px;
+                    height: 18px;
+                    source: @image-url("icons/search.png");
+                    colorize: root.palette.text-secondary;
+                }
                 search-field := TextInput {
+                    x: 34px;
+                    y: 0px;
                     height: 36px;
-                    width: 290px;
+                    width: 256px;
                     vertical-alignment: center;
                     text <=> root.query;
                     color: root.palette.text;
@@ -179,7 +190,8 @@ export component ContentView inherits Rectangle {
             } // end search bar row
 
         // ---- HOME PAGE content ----------------------------------------
-        if root.current-view == "home":
+        if root.current-view == "home": VerticalLayout {
+            spacing: 8px;
             Text {
                 text: @tr("Welcome back") + (root.username != "" ? ", " + root.username : "");
                 color: root.palette.text-secondary;
@@ -261,13 +273,15 @@ export component ContentView inherits Rectangle {
                         }
                 }
             }
-            if root.results.length > 0:
-                Text {
-                    text: @tr("Trending");
-                    color: root.palette.text;
-                    font-size: 16px;
-                    font-weight: 800;
-                }
+        }
+
+        if root.current-view == "explore" && root.results.length > 0:
+            Text {
+                text: @tr("Trending");
+                color: root.palette.text;
+                font-size: 16px;
+                font-weight: 800;
+            }
 
         Rectangle {
         width: 100%;
