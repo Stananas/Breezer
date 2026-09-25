@@ -88,6 +88,7 @@ enum Evt {
     Results(Vec<TrackCard>),
     Playlists(Vec<PlaylistCard>),
     Status(String),
+    VolumeLabel(String),
     Auth { state: i32, username: String },
     AuthFailed(String),
     TrackChanged(TrackCard),
@@ -309,6 +310,7 @@ fn run_gui() -> Result<()> {
     window.set_version_status(SharedString::from(format!("Breezer v{}", env!("CARGO_PKG_VERSION"))));
     window.set_search_status(SharedString::from(i18n.t("search.prompt")));
     window.set_volume(cfg.volume);
+    window.set_volume_label(SharedString::from(format!("{} %", cfg.volume.round() as u32)));
     window.set_current_track(empty_track());
     window.set_position_label(SharedString::from("0:00"));
     window.set_duration_label(SharedString::from("0:00"));
@@ -794,6 +796,9 @@ fn run_gui() -> Result<()> {
                         player.set_volume(v / 100.0);
                         cfg.volume = v;
                         let _ = evt_tx2.send(Evt::Volume(v)).await;
+                        let _ = evt_tx2
+                            .send(Evt::VolumeLabel(format!("{} %", v.round() as u32)))
+                            .await;
                         if let Err(e) = cfg.save() {
                             log::warn!("could not save config: {e}");
                         }
@@ -1123,6 +1128,7 @@ fn apply_event(ui: &MainWindow, evt: Evt, covers: &Covers) {
         Evt::Playing(b) => ui.set_playing(b),
         Evt::Position(v) => ui.set_position(v),
         Evt::Volume(v) => ui.set_volume(v),
+        Evt::VolumeLabel(s) => ui.set_volume_label(SharedString::from(s)),
         Evt::Layout { left, right, bottom } => {
             ui.set_left_panel(SharedString::from(left));
             ui.set_right_panel(SharedString::from(right));

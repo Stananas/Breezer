@@ -73,6 +73,7 @@ component DockShell inherits Rectangle {
     in property <string> position-label;
     in property <string> duration-label;
     in property <float> volume;
+    in property <string> volume-label;
     in property <TrackInfo> current-track;
     in property <bool> player-enabled;
     in property <string> theme-id;
@@ -250,6 +251,7 @@ component DockShell inherits Rectangle {
             position-label: root.position-label;
             duration-label: root.duration-label;
             volume: root.volume;
+            volume-label: root.volume-label;
             current-track: root.current-track;
             toggle-requested => root.toggle-requested();
             prev-requested => root.prev-requested();
@@ -362,6 +364,7 @@ export component MainWindow inherits Window {
     in property <string> position-label;
     in property <string> duration-label;
     in property <float> volume;
+    in property <string> volume-label;
     in property <TrackInfo> current-track;
     in property <bool> player-enabled;
 
@@ -424,6 +427,7 @@ export component MainWindow inherits Window {
         position-label <=> root.position-label;
         duration-label <=> root.duration-label;
         volume <=> root.volume;
+        volume-label <=> root.volume-label;
         current-track <=> root.current-track;
         player-enabled <=> root.player-enabled;
         left-panel <=> root.left-panel;

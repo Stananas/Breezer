@@ -1,6 +1,8 @@
-// Player bar: now playing (left), transport+progress (center), volume (right).
-// Pinned at the bottom, all blocks absolutely anchored → left/right edges can
-// never be displaced by layout centering.
+// Player bar — 100% absolute coordinates (immune to Slint layout-centering).
+//  LEFT   cover, vertically centered
+//  CENTER transport buttons (prev / play / next) ABOVE the duration slider,
+//         with elapsed time at the left end and total at the right end
+//  RIGHT  volume slider + percentage tooltip on hover
 
 import { BreezerSlider, IconBtn, Palette, TrackInfo } from "./elements.slint";
 
@@ -12,6 +14,7 @@ export component PlayerBar inherits Rectangle {
     in property <string> position-label;
     in property <string> duration-label;
     in property <float> volume;
+    in property <string> volume-label;
     in property <TrackInfo> current-track;
     callback toggle-requested();
     callback prev-requested();
@@ -19,141 +22,177 @@ export component PlayerBar inherits Rectangle {
     callback seek-requested(float);
     callback volume-requested(float);
 
-    height: 86px;
+    height: 94px;
     background: root.palette.surface2;
 
     // top hairline
-    Rectangle {
-        x: 0px;
-        y: 0px;
-        width: 100%;
-        height: 1px;
-        background: root.palette.surface;
-    }
+    Rectangle { x: 0px; y: 0px; width: 100%; height: 1px; background: root.palette.surface; }
 
-    // --- LEFT: now playing (cover + title/artist) --------------------------
+    // ------------------------------------------------------------------
+    // LEFT — cover, vertically centered
+    // ------------------------------------------------------------------
     Rectangle {
         x: 16px;
-        y: 0px;
-        width: 260px;
-        height: 100%;
-        HorizontalLayout {
-            width: 100%;
-            height: 100%;
-            spacing: 12px;
-            alignment: center;
-            Rectangle {
-                width: 60px;
-                height: 60px;
-                border-radius: 8px;
-                clip: true;
-                background: root.palette.surface;
-                Image {
-                    width: 60px;
-                    height: 60px;
-                    source: root.current-track.cover;
-                    image-fit: cover;
-                }
-            }
-            VerticalLayout {
-                width: 180px;
-                spacing: 3px;
-                alignment: center;
-                Text {
-                    text: root.current-track.id >= 0 ? root.current-track.title : @tr("Breezer");
-                    horizontal-alignment: left;
-                    color: root.palette.text;
-                    font-weight: 600;
-                    overflow: elide;
-                }
-                Text {
-                    text: root.current-track.artist;
-                    horizontal-alignment: left;
-                    color: root.palette.text-secondary;
-                    font-size: 12px;
-                    overflow: elide;
-                }
-            }
+        y: (root.height - 60px) / 2;
+        width: 60px;
+        height: 60px;
+        border-radius: 8px;
+        clip: true;
+        background: root.palette.surface;
+        Image {
+            width: 60px;
+            height: 60px;
+            source: root.current-track.cover;
+            image-fit: cover;
         }
     }
 
-    // --- RIGHT: volume (glued to the right edge) --------------------------
+    // ------------------------------------------------------------------
+    // CENTER — transport row + duration slider row
+    // ------------------------------------------------------------------
+    // transport cluster width: 36 + 44 + 36 + 2*8 spacing = 132
     Rectangle {
-        x: root.width - 150px;
-        y: 0px;
-        width: 134px;
-        height: 100%;
-        HorizontalLayout {
-            width: 100%;
-            height: 100%;
-            spacing: 8px;
-            alignment: center;
+        x: 292px + (root.width - 292px - 176px - 132px) / 2;
+        y: 10px;
+        width: 132px;
+        height: 44px;
+        IconBtn {
+            x: 0px; y: 4px;
+            palette: root.palette;
+            icon: @image-url("icons/skip-back.png");
+            clicked => root.prev-requested();
+        }
+        pb := Rectangle {
+            x: 44px;
+            y: 0px;
+            width: 44px;
+            height: 44px;
+            border-radius: 22px;
+            background: root.playing ? root.palette.surface : root.palette.primary;
+            border-width: root.playing ? 1px : 0px;
+            border-color: root.palette.surface;
+            ta := TouchArea {
+                clicked => root.toggle-requested();
+                mouse-cursor: pointer;
+            }
             Image {
-                width: 18px;
-                height: 18px;
-                source: root.volume > 0 ? @image-url("icons/volume-2.png") : @image-url("icons/volume-x.png");
-                colorize: root.palette.text-secondary;
+                x: (pb.width - 22px) / 2;
+                y: (pb.height - 22px) / 2;
+                width: 22px;
+                height: 22px;
+                source: root.playing ? @image-url("icons/pause.png") : @image-url("icons/play.png");
+                colorize: root.playing ? root.palette.primary : root.palette.on-primary;
             }
-            BreezerSlider {
-                horizontal-stretch: 1;
-                palette: root.palette;
-                minimum: 0;
-                maximum: 100;
-                progress: clamp(root.volume / 100.0, 0.0, 1.0);
-                changed(v) => root.volume-requested(v);
-            }
+        }
+        IconBtn {
+            x: 96px; y: 4px;
+            palette: root.palette;
+            icon: @image-url("icons/skip-forward.png");
+            clicked => root.next-requested();
         }
     }
 
-    // --- CENTER: transport + progress (fills the space between) ------------
+    // duration slider row (width of the center block)
     Rectangle {
         x: 292px;
+        y: 62px;
+        width: root.width - 292px - 176px;
+        height: 26px;
+        Rectangle {
+            x: 0px;
+            y: 0px;
+            width: 42px;
+            height: 26px;
+            clip: true;
+            Text {
+                width: 100%;
+                height: 100%;
+                text: root.position-label;
+                horizontal-alignment: right;
+                vertical-alignment: center;
+                color: root.palette.text-secondary;
+                font-size: 12px;
+            }
+        }
+        BreezerSlider {
+            x: 50px;
+            y: 0px;
+            width: root.width - 292px - 176px - 100px;
+            height: 26px;
+            palette: root.palette;
+            minimum: 0;
+            maximum: root.progress-duration > 0 ? root.progress-duration : 1.0;
+            progress: clamp(root.position / (root.progress-duration > 0 ? root.progress-duration : 1.0), 0.0, 1.0);
+            changed(v) => root.seek-requested(v);
+        }
+        Rectangle {
+            x: root.width - 292px - 176px - 42px;
+            y: 0px;
+            width: 42px;
+            height: 26px;
+            clip: true;
+            Text {
+                width: 100%;
+                height: 100%;
+                text: root.duration-label;
+                horizontal-alignment: left;
+                vertical-alignment: center;
+                color: root.palette.text-secondary;
+                font-size: 12px;
+            }
+        }
+    }
+
+    // ------------------------------------------------------------------
+    // RIGHT — volume + tooltip
+    // ------------------------------------------------------------------
+    Rectangle {
+        x: root.width - 160px;
         y: 0px;
-        width: root.width - 292px - 152px;
+        width: 160px;
         height: 100%;
-        HorizontalLayout {
+        vta := TouchArea {
             width: 100%;
             height: 100%;
-            spacing: 10px;
-            alignment: center;
-            IconBtn { palette: root.palette; icon: @image-url("icons/skip-back.png"); clicked => root.prev-requested(); }
-            Rectangle {
-                width: 44px;
-                height: 44px;
-                border-radius: 22px;
-                background: root.playing ? root.palette.surface : root.palette.primary;
-                border-width: root.playing ? 1px : 0px;
-                border-color: root.palette.surface;
-                ta := TouchArea {
-                    clicked => root.toggle-requested();
-                    mouse-cursor: pointer;
-                }
-                Image {
-                    width: 22px;
-                    height: 22px;
-                    source: root.playing ? @image-url("icons/pause.png") : @image-url("icons/play.png");
-                    colorize: root.playing ? root.palette.primary : root.palette.on-primary;
-                }
+            mouse-cursor: pointer;
+        }
+        Rectangle {
+            x: -20px;
+            y: 0px;
+            width: root.width + 40px;
+            height: 20px;
+            visible: vta.has-hover;
+            border-radius: 6px;
+            background: root.palette.surface;
+            Text {
+                text: root.volume-label + " %";
+                width: 100%;
+                height: 100%;
+                horizontal-alignment: center;
+                vertical-alignment: center;
+                color: root.palette.text;
+                font-size: 12px;
+                font-weight: 600;
             }
-            IconBtn { palette: root.palette; icon: @image-url("icons/skip-forward.png"); clicked => root.next-requested(); }
-            VerticalLayout {
-                horizontal-stretch: 1;
-                spacing: 2px;
-                alignment: center;
-                BreezerSlider {
-                    palette: root.palette;
-                    minimum: 0;
-                    maximum: root.progress-duration > 0 ? root.progress-duration : 1.0;
-                    progress: clamp(root.position / (root.progress-duration > 0 ? root.progress-duration : 1.0), 0.0, 1.0);
-                    changed(v) => root.seek-requested(v);
-                }
-                HorizontalLayout {
-                    width: 100%;
-                    Text { text: root.position-label; color: root.palette.text-secondary; font-size: 11px; }
-                    Rectangle { horizontal-stretch: 1; }
-                    Text { text: root.duration-label; color: root.palette.text-secondary; font-size: 11px; }
-                }
-            }
+        }
+        Image {
+            x: 4px;
+            y: (root.height + 16px) / 2;
+            width: 18px;
+            height: 18px;
+            source: root.volume > 0 ? @image-url("icons/volume-2.png") : @image-url("icons/volume-x.png");
+            colorize: root.palette.text-secondary;
+        }
+        BreezerSlider {
+            x: 30px;
+            y: (root.height + 6px) / 2;
+            width: 126px;
+            height: 26px;
+            palette: root.palette;
+            minimum: 0;
+            maximum: 100;
+            progress: clamp(root.volume / 100.0, 0.0, 1.0);
+            changed(v) => root.volume-requested(v);
         }
     }
 }
