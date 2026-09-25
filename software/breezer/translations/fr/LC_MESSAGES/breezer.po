@@ -40,6 +40,12 @@ msgstr "Disposition"
 msgid "Show queue"
 msgstr "Afficher la file"
 
+msgid "Loading your playlists…"
+msgstr "Chargement de vos playlists…"
+
+msgid "← Playlists"
+msgstr "← Playlists"
+
 msgid "Save layout"
 msgstr "Enregistrer le layout"
 

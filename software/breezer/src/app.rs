@@ -32,6 +32,7 @@ enum Cmd {
     View(String),
     Play(i32),
     PlayIndex(usize),
+    PlaylistSelected(String),
     Toggle,
     Prev,
     Next,
@@ -75,8 +76,17 @@ impl TrackCard {
     }
 }
 
+/// Send-safe playlist row (images built on the UI thread).
+#[derive(Debug, Clone)]
+struct PlaylistCard {
+    id: String,
+    title: String,
+    cover_url: String,
+}
+
 enum Evt {
     Results(Vec<TrackCard>),
+    Playlists(Vec<PlaylistCard>),
     Status(String),
     Auth { state: i32, username: String },
     AuthFailed(String),
@@ -108,6 +118,7 @@ pub fn run() -> Result<()> {
             }
             "--update-check" => return run_update_check(),
             "--selftest" => return run_selftest(),
+            "--playlists-test" => return run_playlists_test(),
             "--stream-test" => {
                 let id = args
                     .next()
@@ -163,6 +174,52 @@ fn run_update_check() -> Result<()> {
         match crate::updater::check(&client).await? {
             Some(info) => println!("update available: v{} ({})", info.version, info.url),
             None => println!("up to date (v{})", env!("CARGO_PKG_VERSION")),
+        }
+        Ok(())
+    })
+}
+
+/// Playlists diagnostic: list user playlists then fetch the tracks of the first
+/// one (no audio playback).
+fn run_playlists_test() -> Result<()> {
+    init_logger();
+    let cfg = Config::load();
+    let rt = tokio::runtime::Runtime::new()?;
+    rt.block_on(async {
+        let mut api = ApiClient::from_config(&cfg)?;
+        match api.auth_with_arl(cfg.arl.as_deref().unwrap_or_default()).await {
+            Ok(s) => {
+                println!("session ok for user {}", s.user_id);
+                api.set_session(cfg.arl.clone().unwrap(), &s);
+            }
+            Err(e) => {
+                println!("no valid ARL session: {e}");
+                return Ok(());
+            }
+        }
+        match api.playlists().await {
+            Ok(list) => {
+                println!("{} playlists", list.len());
+                if let Some(first) = list.first() {
+                    println!(
+                        "first: {} (id {}, {} tracks)",
+                        first.title, first.id, first.count
+                    );
+                    match api.playlist_tracks(&first.id.to_string()).await {
+                        Ok(tracks) => {
+                            println!("  {} tracks fetched", tracks.len());
+                            for t in tracks.iter().take(3) {
+                                println!(
+                                    "    {} — {} (id {})",
+                                    t.title, t.artist.name, t.id
+                                );
+                            }
+                        }
+                        Err(e) => println!("  playlist_tracks failed: {e}"),
+                    }
+                }
+            }
+            Err(e) => println!("playlists failed: {e}"),
         }
         Ok(())
     })
@@ -323,6 +380,18 @@ fn run_gui() -> Result<()> {
             let _ = tx.try_send(Cmd::PlayIndex(i.max(0) as usize));
         }
     });
+    window.on_playlist_selected({
+        let tx = cmd_tx.clone();
+        move |p: Str| {
+            let _ = tx.try_send(Cmd::PlaylistSelected(p.to_string()));
+        }
+    });
+    window.on_back_requested({
+        let tx = cmd_tx.clone();
+        move || {
+            let _ = tx.try_send(Cmd::View("playlists".into()));
+        }
+    });
     window.on_seek_requested({
         let tx = cmd_tx.clone();
         move |v: f32| {
@@ -403,6 +472,7 @@ fn run_gui() -> Result<()> {
             let mut layout = layout;
             let plugins = PluginRegistry::with_system();
             let mut last_cards: Vec<TrackCard> = Vec::new();
+            let mut playlists_cache: Vec<PlaylistCard> = Vec::new();
 
             let _ = evt_tx2.send(Evt::PlayerEnabled(player.has_device())).await;
 
@@ -513,7 +583,82 @@ fn run_gui() -> Result<()> {
                             "settings" => i18n.t("nav.settings"),
                             _ => v.clone(),
                         };
-                        let _ = evt_tx2.send(Evt::View { view: v, title }).await;
+                        let _ = evt_tx2.send(Evt::View { view: v.clone(), title }).await;
+
+                        // Fetch the user's playlists when entering the view
+                        // (cached afterwards — the "back" button reuses it).
+                        if v == "playlists" && playlists_cache.is_empty() && api.is_authenticated() {
+                            match api.playlists().await {
+                                Ok(list) => {
+                                    let urls: Vec<String> =
+                                        list.iter().map(|p| playlist_cover_url(&p.picture_hash)).collect();
+                                    covers.ensure(&urls).await;
+                                    playlists_cache = list
+                                        .into_iter()
+                                        .map(|p| PlaylistCard {
+                                            id: p.id.to_string(),
+                                            title: p.title,
+                                            cover_url: playlist_cover_url(&p.picture_hash),
+                                        })
+                                        .collect();
+                                    let _ = evt_tx2.send(Evt::Playlists(playlists_cache.clone())).await;
+                                }
+                                Err(e) => {
+                                    log::warn!("playlists fetch failed: {e}");
+                                    let _ = evt_tx2
+                                        .send(Evt::Status(
+                                            i18n.t_args("playlists.error", &[("error", &e.to_string())]),
+                                        )).await;
+                                }
+                            }
+                        }
+                    }
+
+                    Cmd::PlaylistSelected(pid) => {
+                        let title = playlists_cache
+                            .iter()
+                            .find(|p| p.id == pid)
+                            .map(|p| p.title.clone())
+                            .unwrap_or_else(|| i18n.t("nav.playlists"));
+                        match api.playlist_tracks(&pid).await {
+                            Ok(tracks) => {
+                                let urls: Vec<String> = tracks
+                                    .iter()
+                                    .map(|t| t.album.cover_medium.clone())
+                                    .collect();
+                                covers.ensure(&urls).await;
+                                let cards: Vec<TrackCard> = tracks
+                                    .into_iter()
+                                    .map(|t| TrackCard {
+                                        id: t.id as i32,
+                                        title: t.title,
+                                        artist: t.artist.name,
+                                        album: t.album.title,
+                                        cover_url: t.album.cover_medium,
+                                        duration: t.duration as f32,
+                                    })
+                                    .collect();
+                                let count = cards.len();
+                                last_cards = cards.clone();
+                                let _ = evt_tx2
+                                    .send(Evt::View { view: "playlist-detail".into(), title })
+                                    .await;
+                                let _ = evt_tx2.send(Evt::Results(cards)).await;
+                                let _ = evt_tx2
+                                    .send(Evt::Status(
+                                        i18n.t_args("playlist.tracks", &[("count", &count.to_string())]),
+                                    ))
+                                    .await;
+                            }
+                            Err(e) => {
+                                log::warn!("playlist tracks failed: {e}");
+                                let _ = evt_tx2
+                                    .send(Evt::Status(
+                                        i18n.t_args("playlist.tracks.error", &[("error", &e.to_string())]),
+                                    ))
+                                    .await;
+                            }
+                        }
                     }
 
                     Cmd::Play(id) => {
@@ -760,6 +905,15 @@ fn layout_event(layout: &LayoutProfile) -> Evt {
     }
 }
 
+/// Cover URL for a Deezer playlist/album picture hash.
+fn playlist_cover_url(hash: &str) -> String {
+    if hash.is_empty() {
+        String::new()
+    } else {
+        format!("https://e-cdns-images.dzcdn.net/images/cover/{hash}/250x250-000000-80-0-0.jpg")
+    }
+}
+
 /// Queue + start a track.
 #[allow(clippy::too_many_arguments)]
 async fn play_card(
@@ -850,6 +1004,18 @@ fn apply_event(ui: &MainWindow, evt: Evt, covers: &Covers) {
         Evt::Results(cards) => {
             let items: Vec<TrackInfo> = cards.iter().map(|c| c.to_ui(covers)).collect();
             ui.set_search_results(ModelRc::from(std::rc::Rc::new(VecModel::from(items))));
+        }
+        Evt::Playlists(cards) => {
+            let items: Vec<crate::PlaylistInfo> = cards
+                .iter()
+                .map(|c| crate::PlaylistInfo {
+                    id: c.id.clone().into(),
+                    title: c.title.clone().into(),
+                    count: 0,
+                    cover: covers.image(&c.cover_url),
+                })
+                .collect();
+            ui.set_playlist_results(ModelRc::from(std::rc::Rc::new(VecModel::from(items))));
         }
         Evt::Status(s) => {
             // An empty status hides the status line (only when results exist).

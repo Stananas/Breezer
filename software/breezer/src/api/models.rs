@@ -51,6 +51,15 @@ pub struct Playlist {
     pub nb_tracks: u32,
 }
 
+/// A playlist as returned by the gateway (`pageProfile`).
+#[derive(Debug, Clone, Default)]
+pub struct PlaylistMeta {
+    pub id: u64,
+    pub title: String,
+    pub picture_hash: String,
+    pub count: u32,
+}
+
 #[derive(Debug, Deserialize)]
 pub struct DzPlaylistResponse {
     pub data: Vec<Playlist>,

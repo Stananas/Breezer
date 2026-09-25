@@ -1,7 +1,54 @@
 // Content area: search + result grid, and the Settings view (theme, language,
 // custom colors, layout).
 
-import { CoverCard, Palette, TrackInfo } from "./elements.slint";
+import { CoverCard, Palette, PlaylistInfo, TrackInfo } from "./elements.slint";
+
+// One playlist row in the Playlists view.
+component PlaylistCard inherits Rectangle {
+    in property <Palette> palette;
+    in property <PlaylistInfo> playlist;
+    callback clicked(string);
+    height: 64px;
+    border-radius: root.palette.radius;
+    background: ta.has-hover ? root.palette.surface2 : root.palette.surface;
+    ta := TouchArea {
+        clicked => root.clicked(root.playlist.id);
+        mouse-cursor: pointer;
+    }
+    HorizontalLayout {
+        padding: 8px;
+        spacing: 12px;
+        alignment: center;
+        Rectangle {
+            width: 48px;
+            height: 48px;
+            border-radius: 8px;
+            clip: true;
+            background: root.palette.surface2;
+            Image {
+                width: 48px;
+                height: 48px;
+                source: root.playlist.cover;
+            }
+        }
+        VerticalLayout {
+            horizontal-stretch: 1;
+            spacing: 2px;
+            alignment: center;
+            Text {
+                text: root.playlist.title;
+                color: root.palette.text;
+                font-weight: 600;
+                overflow: elide;
+            }
+        }
+        Text {
+            text: "›";
+            color: root.palette.text-secondary;
+            font-size: 20px;
+        }
+    }
+}
 
 // Small selectable chip (language / theme).
 component Chip inherits Rectangle {
@@ -88,6 +135,7 @@ component ColorRow inherits Rectangle {
 export component ContentView inherits Rectangle {
     in property <Palette> palette;
     in property <[TrackInfo]> results;
+    in property <[PlaylistInfo]> playlist-results;
     in property <string> status;
     in property <string> view-title;
     in property <string> current-view;
@@ -95,6 +143,8 @@ export component ContentView inherits Rectangle {
     in property <string> ui-language;
     callback search-requested(string);
     callback play-requested(int);
+    callback playlist-selected(string);
+    callback back-requested();
     callback theme-changed(string);
     callback language-changed(string);
     callback theme-override-requested(string, string);
@@ -109,9 +159,9 @@ export component ContentView inherits Rectangle {
     background: root.palette.bg;
 
     // ----------------------------------------------------------------
-    // SEARCH VIEW
+    // SEARCH VIEW (home / favorites)
     // ----------------------------------------------------------------
-    if root.current-view != "settings": VerticalLayout {
+    if root.current-view != "settings" && root.current-view != "playlists" && root.current-view != "playlist-detail": VerticalLayout {
         padding-left: root.palette.spacing;
         padding-right: root.palette.spacing;
         padding-top: root.palette.spacing;
@@ -184,6 +234,104 @@ export component ContentView inherits Rectangle {
                         }
                     }
                 }
+        }
+    }
+
+    // ----------------------------------------------------------------
+    // PLAYLISTS VIEW
+    // ----------------------------------------------------------------
+    if root.current-view == "playlists": Rectangle {
+        background: root.palette.bg;
+        VerticalLayout {
+            padding-left: root.palette.spacing;
+            padding-right: root.palette.spacing;
+            padding-top: root.palette.spacing;
+            padding-bottom: root.palette.spacing;
+            spacing: root.palette.spacing;
+            HorizontalLayout {
+                spacing: 12px;
+                alignment: center;
+                Text {
+                    text: @tr("Playlists");
+                    font-size: 22px;
+                    font-weight: 800;
+                    color: root.palette.text;
+                }
+                Rectangle { horizontal-stretch: 1; }
+                Text {
+                    text: root.status;
+                    color: root.palette.text-secondary;
+                    font-size: 12px;
+                }
+            }
+            if root.playlist-results.length == 0:
+                Text {
+                    text: @tr("Loading your playlists…");
+                    color: root.palette.text-secondary;
+                }
+            if root.playlist-results.length > 0:
+                Flickable {
+                    vertical-stretch: 1;
+                    VerticalLayout {
+                        spacing: 8px;
+                        padding: 2px;
+                        for p in root.playlist-results: PlaylistCard {
+                            palette: root.palette;
+                            playlist: p;
+                            clicked(id) => root.playlist-selected(id);
+                        }
+                    }
+                }
+        }
+    }
+
+    // ----------------------------------------------------------------
+    // PLAYLIST DETAIL VIEW
+    // ----------------------------------------------------------------
+    if root.current-view == "playlist-detail": Rectangle {
+        background: root.palette.bg;
+        VerticalLayout {
+            padding-left: root.palette.spacing;
+            padding-right: root.palette.spacing;
+            padding-top: root.palette.spacing;
+            padding-bottom: root.palette.spacing;
+            spacing: root.palette.spacing;
+            HorizontalLayout {
+                spacing: 12px;
+                alignment: center;
+                SettingsBtn {
+                    palette: root.palette;
+                    label: @tr("← Playlists");
+                    clicked => root.back-requested();
+                }
+                Text {
+                    text: root.view-title;
+                    font-size: 20px;
+                    font-weight: 800;
+                    color: root.palette.text;
+                }
+            }
+            Rectangle {
+                vertical-stretch: 1;
+                if root.results.length > 0:
+                    Flickable {
+                        vertical-stretch: 1;
+                        GridLayout {
+                            spacing: 14px;
+                            padding: 4px;
+                            for track[idx] in root.results: CoverCard {
+                                palette: root.palette;
+                                track: track;
+                                clicked(id) => root.play-requested(id);
+                            }
+                        }
+                    }
+                if root.results.length == 0 && root.status != "":
+                    Text {
+                        text: root.status;
+                        color: root.palette.text-secondary;
+                    }
+            }
         }
     }
 

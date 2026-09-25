@@ -8,7 +8,7 @@
 // v0.1 dockable panels: "sidebar" and "queue" (the player stays at the bottom).
 
 import "./fonts/Lexend.ttf";
-import { BreezerSlider, IconBtn, Palette, TrackInfo } from "./elements.slint";
+import { BreezerSlider, IconBtn, Palette, PlaylistInfo, TrackInfo } from "./elements.slint";
 import { Sidebar } from "./sidebar.slint";
 import { ContentView } from "./content.slint";
 import { PlayerBar } from "./player_bar.slint";
@@ -64,6 +64,7 @@ component DockShell inherits Rectangle {
     in property <string> current-view;
     in property <string> view-title;
     in property <[TrackInfo]> search-results;
+    in property <[PlaylistInfo]> playlist-results;
     in property <string> search-status;
     in property <bool> playing;
     in property <float> position;
@@ -87,6 +88,8 @@ component DockShell inherits Rectangle {
     callback open-browser-requested();
     callback view-requested(string);
     callback play-requested(int);
+    callback playlist-selected(string);
+    callback back-requested();
     callback play-index-requested(int);
     callback toggle-requested();
     callback prev-requested();
@@ -154,6 +157,7 @@ component DockShell inherits Rectangle {
                 ContentView {
                     palette: root.palette;
                     results: root.search-results;
+                    playlist-results: root.playlist-results;
                     status: root.search-status;
                     view-title: root.view-title;
                     current-view: root.current-view;
@@ -161,6 +165,8 @@ component DockShell inherits Rectangle {
                     ui-language: root.ui-language;
                     search-requested(q) => root.search-requested(q);
                     play-requested(id) => root.play-requested(id);
+                    playlist-selected(id) => root.playlist-selected(id);
+                    back-requested => root.back-requested();
                     theme-changed(s) => root.theme-changed(s);
                     language-changed(s) => root.language-changed(s);
                     theme-override-requested(t, v) => root.theme-override-requested(t, v);
@@ -313,6 +319,7 @@ export component MainWindow inherits Window {
     in property <string> current-view;
 
     in property <[TrackInfo]> search-results;
+    in property <[PlaylistInfo]> playlist-results;
     in property <string> search-status;
     in property <string> view-title;
 
@@ -344,6 +351,8 @@ export component MainWindow inherits Window {
     callback open-browser-requested();
     callback view-requested(string);
     callback play-requested(int);
+    callback playlist-selected(string);
+    callback back-requested();
     callback play-index-requested(int);
     callback toggle-requested();
     callback prev-requested();
@@ -373,6 +382,7 @@ export component MainWindow inherits Window {
         auth-state <=> root.auth-state;
         current-view <=> root.current-view;
         search-results <=> root.search-results;
+        playlist-results <=> root.playlist-results;
         search-status <=> root.search-status;
         view-title <=> root.view-title;
         playing <=> root.playing;
@@ -396,6 +406,8 @@ export component MainWindow inherits Window {
         open-browser-requested => root.open-browser-requested();
         view-requested(v) => root.view-requested(v);
         play-requested(id) => root.play-requested(id);
+        playlist-selected(id) => root.playlist-selected(id);
+        back-requested => root.back-requested();
         play-index-requested(i) => root.play-index-requested(i);
         toggle-requested => root.toggle-requested();
         prev-requested => root.prev-requested();

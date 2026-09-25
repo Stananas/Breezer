@@ -23,6 +23,13 @@ export struct TrackInfo {
     duration: float,
 }
 
+export struct PlaylistInfo {
+    id: string,
+    title: string,
+    count: int,
+    cover: image,
+}
+
 export component IconBtn inherits Rectangle {
     in property <Palette> palette;
     in property <string> icon;

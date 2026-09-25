@@ -40,6 +40,8 @@ pub struct ApiClient {
     session_id: Option<String>,
     /// Gateway license token, required for media.get_url streaming.
     license_token: Option<String>,
+    /// Signed-in user id (used by pageProfile etc.).
+    user_id: Option<i64>,
 }
 
 /// Real browser User-Agent: Deezer's gateway refuses or reduces responses to
@@ -53,7 +55,7 @@ impl ApiClient {
             .user_agent(BROWSER_UA)
             .cookie_store(true)
             .build()?;
-        Ok(Self { http, arl: None, api_token: None, session_id: None, license_token: None })
+        Ok(Self { http, arl: None, api_token: None, session_id: None, license_token: None, user_id: None })
     }
 
     /// Build from the stored configuration.
@@ -140,6 +142,7 @@ impl ApiClient {
         self.api_token = Some(session.api_token.clone());
         self.session_id = Some(session.session_id.clone());
         self.license_token = Some(session.license_token.clone());
+        self.user_id = Some(session.user_id);
     }
 
     // ---------------------------------------------------------------------
@@ -209,6 +212,7 @@ impl ApiClient {
                 ("method", method),
                 ("api_version", "1.0"),
                 ("api_token", api_token),
+                ("input", "3"),
             ])
             .header("Cookie", format!("arl={arl}; sid={sid}"))
             .header("Content-Type", "application/json")
@@ -285,5 +289,138 @@ impl ApiClient {
             .bytes()
             .await?;
         Ok(bytes.to_vec())
+    }
+
+    // ---------------------------------------------------------------------
+    // Playlists (flow matched with the tui-dzr client)
+    //   pageProfile (tab=playlists) → list; pagePlaylist (paged) → tracks
+    // ---------------------------------------------------------------------
+
+    /// List the signed-in user's playlists (`deezer.pageProfile`).
+    pub async fn playlists(&self) -> Result<Vec<models::PlaylistMeta>> {
+        let profile_id = self
+            .user_id
+            .ok_or_else(|| Error::Auth("not authenticated — connect with your ARL first".into()))?;
+        let payload = serde_json::json!({
+            "profile_id": profile_id,
+            "user_id": profile_id,
+            "USER_ID": profile_id,
+            "tab": "playlists",
+            "nb": 40,
+        });
+        let resp = self.gateway_call("deezer.pageProfile", payload).await?;
+        let mut out = Vec::new();
+        let lists = resp["results"]["TAB"]["playlists"]["data"]
+            .as_array()
+            .cloned()
+            .unwrap_or_default();
+        for item in lists {
+            let id = item["PLAYLIST_ID"]
+                .as_i64()
+                .or_else(|| item["id"].as_i64())
+                .or_else(|| item["PLAYLIST_ID"].as_str().and_then(|s| s.parse::<i64>().ok()))
+                .or_else(|| item["id"].as_str().and_then(|s| s.parse::<i64>().ok()))
+                .unwrap_or(0);
+            if id == 0 {
+                continue;
+            }
+            let title = item["TITLE"]
+                .as_str()
+                .or_else(|| item["title"].as_str())
+                .unwrap_or("Untitled playlist")
+                .to_string();
+            let picture = item["PICTURE"]
+                .as_str()
+                .or_else(|| item["picture"].as_str())
+                .unwrap_or_default()
+                .to_string();
+            let count = item["NB_SONG"]
+                .as_u64()
+                .or_else(|| item["nb_tracks"].as_u64())
+                .unwrap_or(0) as u32;
+            out.push(models::PlaylistMeta { id: id as u64, title, picture_hash: picture, count });
+        }
+        Ok(out)
+    }
+
+    /// Fetch all tracks of a playlist (`deezer.pagePlaylist`, paged by 200).
+    pub async fn playlist_tracks(&self, playlist_id: &str) -> Result<Vec<models::Track>> {
+        let mut out: Vec<models::Track> = Vec::new();
+        let mut seen = std::collections::HashSet::new();
+        let page_size = 200usize;
+        let mut start = 0usize;
+
+        for _page in 0..10 {
+            let payload = serde_json::json!({
+                "playlist_id": playlist_id,
+                "lang": "en",
+                "header": true,
+                "start": start,
+                "nb": page_size,
+            });
+            let resp = self.gateway_call("deezer.pagePlaylist", payload).await?;
+            let tracks = resp["results"]["SONGS"]["data"]
+                .as_array()
+                .or_else(|| resp["results"]["DATA"]["SONGS"]["data"].as_array())
+                .or_else(|| resp["results"]["tracks"]["data"].as_array())
+                .or_else(|| resp["results"]["TRACKS"]["data"].as_array())
+                .or_else(|| resp["results"]["tracks"].as_array())
+                .or_else(|| resp["results"]["SONGS"].as_array())
+                .cloned()
+                .unwrap_or_default();
+
+            let before = out.len();
+            for track in tracks {
+                let id = track["SNG_ID"]
+                    .as_u64()
+                    .or_else(|| track["SNG_ID"].as_str().and_then(|s| s.parse::<u64>().ok()))
+                    .or_else(|| track["id"].as_u64())
+                    .or_else(|| track["id"].as_str().and_then(|s| s.parse::<u64>().ok()))
+                    .unwrap_or(0);
+                if id == 0 || !seen.insert(id) {
+                    continue;
+                }
+                let title = track["SNG_TITLE"]
+                    .as_str()
+                    .or_else(|| track["title"].as_str())
+                    .unwrap_or("Unknown track")
+                    .to_string();
+                let artist = track["ART_NAME"]
+                    .as_str()
+                    .unwrap_or("Unknown artist")
+                    .to_string();
+                let album_title = track["ALB_TITLE"]
+                    .as_str()
+                    .unwrap_or_default()
+                    .to_string();
+                let cover = track["ALB_PICTURE"]
+                    .as_str()
+                    .filter(|s| !s.is_empty())
+                    .map(|hash| {
+                        format!("https://e-cdns-images.dzcdn.net/images/cover/{hash}/250x250-000000-80-0-0.jpg")
+                    })
+                    .unwrap_or_default();
+                let duration = track["DURATION"]
+                    .as_u64()
+                    .or_else(|| {
+                        track["DURATION"]
+                            .as_str()
+                            .and_then(|s| s.parse::<u64>().ok())
+                    })
+                    .unwrap_or(0) as u32;
+                out.push(models::Track {
+                    id,
+                    title,
+                    duration,
+                    artist: models::Artist { name: artist },
+                    album: models::Album { title: album_title, cover_medium: cover, cover_big: String::new() },
+                });
+            }
+            if out.len() == before {
+                break;
+            }
+            start += page_size;
+        }
+        Ok(out)
     }
 }
