@@ -301,6 +301,52 @@ component DockShell inherits Rectangle {
     }
 }
 
+// Quick pill + button widgets for the onboarding overlay.
+component ObPill inherits Rectangle {
+    in property <Palette> palette;
+    in property <string> label;
+    in property <bool> active;
+    callback clicked();
+    height: 26px;
+    border-radius: 13px;
+    background: root.active ? root.palette.primary : root.palette.surface2;
+    TouchArea {
+        clicked => root.clicked();
+        mouse-cursor: pointer;
+    }
+    Text {
+        text: root.label;
+        font-size: 12px;
+        color: root.active ? root.palette.on-primary : root.palette.text;
+        horizontal-alignment: center;
+        vertical-alignment: center;
+    }
+}
+
+component ObBtn inherits Rectangle {
+    in property <Palette> palette;
+    in property <string> label;
+    in property <bool> primary;
+    in property <bool> enabled: true;
+    callback clicked();
+    height: 34px;
+    border-radius: root.palette.radius;
+    background: root.enabled && root.primary ? root.palette.primary : root.palette.surface2;
+    opacity: root.enabled ? 1.0 : 0.45;
+    TouchArea {
+        enabled: root.enabled;
+        clicked => root.clicked();
+        mouse-cursor: pointer;
+    }
+    Text {
+        text: root.label;
+        font-size: 13px;
+        color: root.enabled && root.primary ? root.palette.on-primary : root.palette.text;
+        horizontal-alignment: center;
+        vertical-alignment: center;
+    }
+}
+
 export component MainWindow inherits Window {
     title: @tr("Breezer");
     preferred-width: 1180px;
@@ -333,6 +379,11 @@ export component MainWindow inherits Window {
     in property <string> theme-id;
     in property <string> ui-language;
 
+    // onboarding (first launch)
+    in property <bool> onboarding-visible;
+    in property <string> onboard-status;
+    in property <string> time-format;
+
     callback search-requested(string);
     callback connect-requested(string);
     callback open-browser-requested();
@@ -351,8 +402,15 @@ export component MainWindow inherits Window {
     callback open-theme-editor-requested();
     callback save-layout-requested();
     callback reset-layout-requested();
+    callback onboarding-finish-requested();
+    callback onboarding-skip-requested();
+    callback time-format-requested(string);
 
     DockShell {
+        x: 0px;
+        y: 0px;
+        width: 100%;
+        height: 100%;
         palette <=> root.palette;
         username <=> root.username;
         auth-state <=> root.auth-state;
@@ -392,5 +450,99 @@ export component MainWindow inherits Window {
         open-theme-editor-requested => root.open-theme-editor-requested();
         save-layout-requested => root.save-layout-requested();
         reset-layout-requested => root.reset-layout-requested();
+    }
+
+    // --- First-launch onboarding overlay (on top of everything) ------------
+    property <string> onboard-arl: "";
+    if root.onboarding-visible: Rectangle {
+        x: 0px;
+        y: 0px;
+        width: root.width;
+        height: root.height;
+        background: root.palette.bg;
+        HorizontalLayout {
+            width: 100%;
+            height: 100%;
+            alignment: center;
+            VerticalLayout {
+                width: 500px;
+                spacing: 10px;
+                alignment: center;
+                Rectangle {
+                    width: 500px;
+                    border-radius: root.palette.radius * 2;
+                    background: root.palette.surface;
+                    VerticalLayout {
+                        padding: 28px;
+                        spacing: 12px;
+                        Text {
+                            text: "🎧 " + @tr("Welcome to Breezer");
+                            font-size: 26px;
+                            font-weight: 800;
+                            color: root.palette.primary;
+                        }
+                        Text {
+                            text: @tr("Tailor Breezer to your taste");
+                            color: root.palette.text-secondary;
+                            font-size: 14px;
+                        }
+                        Rectangle { height: 1px; background: root.palette.surface2; }
+
+                        Text { text: @tr("Language"); font-weight: 700; color: root.palette.text; font-size: 14px; }
+                        HorizontalLayout { spacing: 8px;
+                            ObPill { palette: root.palette; label: "EN"; active: root.ui-language == "en"; clicked => root.language-changed("en"); }
+                            ObPill { palette: root.palette; label: "FR"; active: root.ui-language == "fr"; clicked => root.language-changed("fr"); }
+                        }
+
+                        Text { text: @tr("Theme"); font-weight: 700; color: root.palette.text; font-size: 14px; }
+                        HorizontalLayout { spacing: 8px;
+                            ObPill { palette: root.palette; label: "Dark"; active: root.theme-id == "breezer-dark"; clicked => root.theme-changed("breezer-dark"); }
+                            ObPill { palette: root.palette; label: "Light"; active: root.theme-id == "breezer-light"; clicked => root.theme-changed("breezer-light"); }
+                            ObPill { palette: root.palette; label: "AMOLED"; active: root.theme-id == "breezer-amoled"; clicked => root.theme-changed("breezer-amoled"); }
+                        }
+
+                        Text { text: @tr("Time format"); font-weight: 700; color: root.palette.text; font-size: 14px; }
+                        HorizontalLayout { spacing: 8px;
+                            ObPill { palette: root.palette; label: "24h"; active: root.time-format == "24h"; clicked => root.time-format-requested("24h"); }
+                            ObPill { palette: root.palette; label: "12h"; active: root.time-format == "12h"; clicked => root.time-format-requested("12h"); }
+                        }
+
+                        Rectangle { height: 1px; background: root.palette.surface2; }
+                        Text {
+                            text: @tr("Connect your Deezer account (optional)");
+                            font-weight: 700;
+                            color: root.palette.text;
+                            font-size: 14px;
+                        }
+                        TextInput {
+                            height: 34px;
+                            text <=> root.onboard-arl;
+                            color: root.palette.text;
+                            accepted => root.connect-requested(root.onboard-arl);
+                        }
+                        HorizontalLayout { spacing: 8px;
+                            ObBtn { palette: root.palette; label: @tr("Open Deezer"); clicked => root.open-browser-requested(); }
+                            ObBtn {
+                                palette: root.palette; label: @tr("Connect"); primary: true;
+                                enabled: root.onboard-arl != "";
+                                clicked => root.connect-requested(root.onboard-arl);
+                            }
+                        }
+                        Text {
+                            text: root.onboard-status;
+                            color: root.palette.accent;
+                            font-size: 12px;
+                            wrap: word-wrap;
+                        }
+
+                        Rectangle { height: 1px; background: root.palette.surface2; }
+                        HorizontalLayout { spacing: 8px;
+                            ObBtn { palette: root.palette; label: @tr("Let's go"); primary: true; clicked => root.onboarding-finish-requested(); }
+                            ObBtn { palette: root.palette; label: @tr("Skip setup"); clicked => root.onboarding-skip-requested(); }
+                        }
+                    }
+                }
+            }
+        }
     }
 }

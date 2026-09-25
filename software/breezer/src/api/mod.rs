@@ -65,16 +65,17 @@ impl ApiClient {
         // into `TOKEN` + `USER`.
         let resp = self
             .http
-            .get(GW_LIGHT_URL)
-            .query(&[
+            .post(GW_LIGHT_URL)
+            .header("Cookie", format!("arl={arl};"))
+            .form(&[
                 ("method", "deezer.getUserData"),
                 ("input", "3"),
                 ("api_version", "1.0"),
                 ("api_token", ""),
             ])
-            .header("Cookie", format!("arl={arl};"))
             .send()
             .await?;
+        log::debug!("gw-light responded HTTP {}", resp.status());
 
         let status = resp.status();
         let body: serde_json::Value = resp.json().await?;
@@ -95,6 +96,7 @@ impl ApiClient {
         if inner.token.is_empty() {
             return Err(Error::Auth("no API token returned — ARL invalid or expired".into()));
         }
+        log::debug!("gw-light session OK (user_id={})", inner.user_id);
         Ok(AuthSession {
             api_token: inner.token.clone(),
             username: inner.username.clone(),

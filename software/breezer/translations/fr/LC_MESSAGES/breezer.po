@@ -1,0 +1,84 @@
+# French translation for Breezer.
+msgid ""
+msgstr ""
+"Content-Type: text/plain; charset=UTF-8\n"
+"Language: fr\n"
+
+msgid "Search"
+msgstr "Rechercher"
+
+msgid "Not connected"
+msgstr "Non connecté·e"
+
+msgid "Home"
+msgstr "Accueil"
+
+msgid "Favorites"
+msgstr "Favoris"
+
+msgid "Playlists"
+msgstr "Playlists"
+
+msgid "Deezer login — ARL"
+msgstr "Connexion Deezer — ARL"
+
+msgid "Open Deezer"
+msgstr "Ouvrir Deezer"
+
+msgid "Connect"
+msgstr "Se connecter"
+
+msgid "Theme"
+msgstr "Thème"
+
+msgid "Language"
+msgstr "Langue"
+
+msgid "Toggle queue panel"
+msgstr "Afficher la file d'attente"
+
+msgid "Save layout"
+msgstr "Enregistrer le layout"
+
+msgid "Reset layout"
+msgstr "Réinitialiser le layout"
+
+msgid "Theme editor (v0.2)"
+msgstr "Éditeur de thème (v0.2)"
+
+msgid "v0.1 — AGPL-3.0"
+msgstr "v0.1 — AGPL-3.0"
+
+msgid "Queue"
+msgstr "File d'attente"
+
+msgid "Navigation"
+msgstr "Navigation"
+
+msgid "Player"
+msgstr "Lecteur"
+
+msgid "Breezer"
+msgstr "Breezer"
+
+# --- Onboarding (first launch) ---
+msgid "Welcome to Breezer"
+msgstr "Bienvenue sur Breezer"
+
+msgid "Tailor Breezer to your taste"
+msgstr "Personnalisez Breezer à votre goût"
+
+msgid "Connect your Deezer account (optional)"
+msgstr "Connectez votre compte Deezer (optionnel)"
+
+msgid "Paste your ARL cookie here…"
+msgstr "Collez votre cookie ARL ici…"
+
+msgid "Time format"
+msgstr "Format de l'heure"
+
+msgid "Let's go"
+msgstr "C'est parti"
+
+msgid "Skip setup"
+msgstr "Ignorer la configuration"

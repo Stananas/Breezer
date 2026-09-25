@@ -305,8 +305,16 @@ pub struct Config {
     pub theme_id: String,
     pub language: String,
     pub volume: f32,
+    /// Clock display: "24h" | "12h".
+    pub time_format: String,
+    /// First-launch onboarding wizard completed.
+    pub onboarding_done: bool,
     /// User color overrides on top of the active theme.
     pub theme_overrides: HashMap<String, String>,
+}
+
+fn time_format_default() -> String {
+    "24h".into()
 }
 
 impl Default for Config {
@@ -318,6 +326,8 @@ impl Default for Config {
             theme_id: "breezer-dark".into(),
             language: "en".into(),
             volume: 70.0,
+            time_format: time_format_default(),
+            onboarding_done: false,
             theme_overrides: HashMap::new(),
         }
     }

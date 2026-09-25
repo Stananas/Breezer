@@ -44,6 +44,9 @@ enum Cmd {
     OpenThemeEditor,
     SaveLayout,
     ResetLayout,
+    FinishOnboarding,
+    SkipOnboarding,
+    TimeFormat(String),
 }
 
 /// Send-safe track descriptor (images are reconstructed on the UI thread).
@@ -83,6 +86,7 @@ enum Evt {
     Theme { id: String, palette: UiPalette },
     Language(String),
     PlayerEnabled(bool),
+    OnboardingDone,
 }
 
 // ---------------------------------------------------------------------------
@@ -162,6 +166,9 @@ fn run_gui() -> Result<()> {
 
     let window = MainWindow::new()?;
 
+    // -- bundled translations (Slint @tr) -- must run after window creation --
+    let _ = slint::select_bundled_translation(&cfg.language);
+
     // -- drag & drop payload bridge (DockBridge global, exported in the root) --
     {
         let bridge = window.global::<crate::DockBridge>();
@@ -186,6 +193,10 @@ fn run_gui() -> Result<()> {
     window.set_position_label(SharedString::from("0:00"));
     window.set_duration_label(SharedString::from("0:00"));
     window.set_queue_index(-1);
+    window.set_onboard_status(SharedString::from(""));
+    let onboarding_seen = cfg.onboarding_done;
+    window.set_onboarding_visible(!onboarding_seen);
+    window.set_time_format(SharedString::from(cfg.time_format.as_str()));
 
     let layout = LayoutProfile::load();
     window.set_left_panel(SharedString::from(layout.left.as_str()));
@@ -273,6 +284,14 @@ fn run_gui() -> Result<()> {
     window.on_open_theme_editor_requested(unary(cmd_tx.clone(), Cmd::OpenThemeEditor));
     window.on_save_layout_requested(unary(cmd_tx.clone(), Cmd::SaveLayout));
     window.on_reset_layout_requested(unary(cmd_tx.clone(), Cmd::ResetLayout));
+    window.on_onboarding_finish_requested(unary(cmd_tx.clone(), Cmd::FinishOnboarding));
+    window.on_onboarding_skip_requested(unary(cmd_tx.clone(), Cmd::SkipOnboarding));
+    window.on_time_format_requested({
+        let tx = cmd_tx.clone();
+        move |s: Str| {
+            let _ = tx.try_send(Cmd::TimeFormat(s.to_string()));
+        }
+    });
 
     // -- UI bridge: services → events → event loop -------------------------
     let covers = Covers::new(reqwest::Client::new());
@@ -483,6 +502,21 @@ fn run_gui() -> Result<()> {
                         // v0.2: in-app color editor dialog.
                         let _ = evt_tx2.send(Evt::Status(i18n.t("theme.applied"))).await;
                     }
+                    Cmd::FinishOnboarding | Cmd::SkipOnboarding => {
+                        cfg.onboarding_done = true;
+                        if let Err(e) = cfg.save() {
+                            log::warn!("could not save config: {e}");
+                        }
+                        let _ = evt_tx2.send(Evt::OnboardingDone).await;
+                    }
+                    Cmd::TimeFormat(fmt) => {
+                        if fmt == "24h" || fmt == "12h" {
+                            cfg.time_format = fmt;
+                            if let Err(e) = cfg.save() {
+                                log::warn!("could not save config: {e}");
+                            }
+                        }
+                    }
                 }
             }
             Ok::<(), Error>(())
@@ -581,8 +615,12 @@ fn apply_event(ui: &MainWindow, evt: Evt, covers: &Covers) {
         Evt::Auth { state, username } => {
             ui.set_auth_state(state);
             ui.set_username(SharedString::from(username));
+            ui.set_onboard_status(SharedString::from(""));
         }
-        Evt::AuthFailed(msg) => ui.set_search_status(SharedString::from(msg)),
+        Evt::AuthFailed(msg) => {
+            ui.set_search_status(SharedString::from(msg.clone()));
+            ui.set_onboard_status(SharedString::from(msg));
+        }
         Evt::TrackChanged(card) => {
             let track = card.to_ui(covers);
             let duration = track.duration.max(1.0);
@@ -605,7 +643,11 @@ fn apply_event(ui: &MainWindow, evt: Evt, covers: &Covers) {
             ui.set_palette(palette);
             ui.set_theme_id(SharedString::from(id));
         }
-        Evt::Language(code) => ui.set_ui_language(SharedString::from(code)),
+        Evt::Language(code) => {
+            let _ = slint::select_bundled_translation(&code);
+            ui.set_ui_language(SharedString::from(code));
+        }
         Evt::PlayerEnabled(enabled) => ui.set_player_enabled(enabled),
+        Evt::OnboardingDone => ui.set_onboarding_visible(false),
     }
 }
