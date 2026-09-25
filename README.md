@@ -6,18 +6,33 @@
 
 # 🎧 Breezer
 
-**The ultra-lightweight native Deezer client.** Rust + Slint. No Electron. No bloat.
+**Breezer — A lightweight, blazingly fast native Deezer client built with Rust.**
 
 Linux · macOS · Windows
+
+<img src="assets/hero.gif" alt="Breezer — dark, light & AMOLED themes" width="860"/>
 
 ![License](https://img.shields.io/badge/license-AGPL--3.0%20or%20later-blue)
 ![Rust](https://img.shields.io/badge/Rust-1.85+-orange)
 ![Platform](https://img.shields.io/badge/platform-Linux%20%7C%20macOS%20%7C%20Windows-lightgrey)
+![RAM](https://img.shields.io/badge/RAM-~75MB-brightgreen)
+![No Electron](https://img.shields.io/badge/No-Electron-success)
 [![CI](https://img.shields.io/github/actions/workflow/status/Stananas/Breezer/ci.yml?branch=main&label=CI)](https://github.com/Stananas/Breezer/actions/workflows/ci.yml)
 
 </div>
 
 ---
+
+## ⚡ Lightweight, seriously
+
+| | **Breezer** (native Rust) | Typical Electron music apps |
+|---|---|---|
+| **Memory** | **~75 MB** RAM (measured, RSS on Linux) | **300–600 MB**+ |
+| **Binary** | ~40 MB | 100 MB+ of runtimes |
+| **Startup** | instant | heavier runtime to boot |
+| **Tech** | Rust + Slint, no bundled browser | Chromium embedded |
+
+No Electron. No bundled browser. Just a native binary that streams your music and stays out of the way — RAM numbers measured on Linux x86_64.
 
 ## What is Breezer?
 
