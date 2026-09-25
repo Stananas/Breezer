@@ -40,6 +40,8 @@ enum Cmd {
     Dock(String, String),
     ToggleRight,
     Theme(String),
+    ThemeOverride(String, String),
+    ResetThemeOverrides,
     Language(String),
     OpenThemeEditor,
     SaveLayout,
@@ -84,6 +86,7 @@ enum Evt {
     Volume(f32),
     Layout { left: String, right: String, bottom: String },
     Theme { id: String, palette: UiPalette },
+    View { view: String, title: String },
     Language(String),
     PlayerEnabled(bool),
     OnboardingDone,
@@ -187,6 +190,7 @@ fn run_gui() -> Result<()> {
     window.set_username(SharedString::from(cfg.username.clone().unwrap_or_default()));
     window.set_auth_state(if cfg.arl.is_some() { 1 } else { 0 });
     window.set_current_view(SharedString::from("home"));
+    window.set_view_title(SharedString::from(i18n.t("nav.home")));
     window.set_search_status(SharedString::from(i18n.t("search.prompt")));
     window.set_volume(cfg.volume);
     window.set_current_track(empty_track());
@@ -231,6 +235,18 @@ fn run_gui() -> Result<()> {
         let tx = cmd_tx.clone();
         move |s: Str| {
             let _ = tx.try_send(Cmd::Theme(s.to_string()));
+        }
+    });
+    window.on_theme_override_requested({
+        let tx = cmd_tx.clone();
+        move |t: Str, v: Str| {
+            let _ = tx.try_send(Cmd::ThemeOverride(t.to_string(), v.to_string()));
+        }
+    });
+    window.on_reset_theme_overrides_requested({
+        let tx = cmd_tx.clone();
+        move || {
+            let _ = tx.try_send(Cmd::ResetThemeOverrides);
         }
     });
     window.on_language_changed({
@@ -428,7 +444,16 @@ fn run_gui() -> Result<()> {
                         }
                     }
 
-                    Cmd::View(_view) => {}
+                    Cmd::View(v) => {
+                        let title = match v.as_str() {
+                            "home" => i18n.t("nav.home"),
+                            "favorites" => i18n.t("nav.favorites"),
+                            "playlists" => i18n.t("nav.playlists"),
+                            "settings" => i18n.t("nav.settings"),
+                            _ => v.clone(),
+                        };
+                        let _ = evt_tx2.send(Evt::View { view: v, title }).await;
+                    }
 
                     Cmd::Play(id) => {
                         play_card(&last_cards, id as u64, &mut queue, &evt_tx2, &i18n, &plugins)
@@ -503,6 +528,49 @@ fn run_gui() -> Result<()> {
                             .send(Evt::Theme {
                                 id,
                                 palette: theme.to_slint(),
+                            })
+                            .await;
+                    }
+                    Cmd::ThemeOverride(token, value) => {
+                        let known = matches!(
+                            token.as_str(),
+                            "bg" | "surface" | "surface2"
+                                | "primary" | "on-primary" | "accent"
+                                | "text" | "text-secondary" | "error"
+                                | "radius" | "spacing"
+                        );
+                        if !known {
+                            continue;
+                        }
+                        if value.trim().is_empty() {
+                            cfg.theme_overrides.remove(&token);
+                        } else {
+                            cfg.theme_overrides.insert(token, value);
+                        }
+                        if let Err(e) = cfg.save() {
+                            log::warn!("could not save config: {e}");
+                        }
+                        let mut theme = Theme::load_builtin(&cfg.theme_id)
+                            .unwrap_or_else(|_| Theme::fallback());
+                        theme.apply_overrides(&cfg.theme_overrides);
+                        let _ = evt_tx2
+                            .send(Evt::Theme {
+                                id: cfg.theme_id.clone(),
+                                palette: theme.to_slint(),
+                            })
+                            .await;
+                    }
+                    Cmd::ResetThemeOverrides => {
+                        cfg.theme_overrides.clear();
+                        if let Err(e) = cfg.save() {
+                            log::warn!("could not save config: {e}");
+                        }
+                        let _ = evt_tx2
+                            .send(Evt::Theme {
+                                id: cfg.theme_id.clone(),
+                                palette: Theme::load_builtin(&cfg.theme_id)
+                                    .unwrap_or_else(|_| Theme::fallback())
+                                    .to_slint(),
                             })
                             .await;
                     }
@@ -675,6 +743,10 @@ fn apply_event(ui: &MainWindow, evt: Evt, covers: &Covers) {
         Evt::Theme { id, palette } => {
             ui.set_palette(palette);
             ui.set_theme_id(SharedString::from(id));
+        }
+        Evt::View { view, title } => {
+            ui.set_current_view(SharedString::from(view));
+            ui.set_view_title(SharedString::from(title));
         }
         Evt::Language(code) => {
             let _ = slint::select_bundled_translation(&code);

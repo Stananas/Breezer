@@ -19,6 +19,66 @@ msgstr "Favoris"
 msgid "Playlists"
 msgstr "Playlists"
 
+msgid "Settings"
+msgstr "Réglages"
+
+msgid "Language"
+msgstr "Langue"
+
+msgid "Theme"
+msgstr "Thème"
+
+msgid "Custom colors"
+msgstr "Couleurs personnalisées"
+
+msgid "Reset custom colors"
+msgstr "Réinitialiser les couleurs"
+
+msgid "Layout"
+msgstr "Disposition"
+
+msgid "Show queue"
+msgstr "Afficher la file"
+
+msgid "Save layout"
+msgstr "Enregistrer le layout"
+
+msgid "Reset layout"
+msgstr "Réinitialiser le layout"
+
+msgid "Breezer v0.1 — AGPL-3.0"
+msgstr "Breezer v0.1 — AGPL-3.0"
+
+msgid "Type a value and press Enter to apply."
+msgstr "Saisissez une valeur puis Entrée pour appliquer."
+
+msgid "ex: #0f1012"
+msgstr "ex : #0f1012"
+
+msgid "ex: #17181c"
+msgstr "ex : #17181c"
+
+msgid "ex: #1f2127"
+msgstr "ex : #1f2127"
+
+msgid "ex: #a238ff"
+msgstr "ex : #a238ff"
+
+msgid "ex: #2a9d8f"
+msgstr "ex : #2a9d8f"
+
+msgid "ex: #f2f3f5"
+msgstr "ex : #f2f3f5"
+
+msgid "ex: #e5484d"
+msgstr "ex : #e5484d"
+
+msgid "px, ex: 8"
+msgstr "px, ex : 8"
+
+msgid "px, ex: 12"
+msgstr "px, ex : 12"
+
 msgid "Deezer login — ARL"
 msgstr "Connexion Deezer — ARL"
 
