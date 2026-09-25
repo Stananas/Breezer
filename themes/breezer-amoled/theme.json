@@ -1,0 +1,27 @@
+{
+  "id": "breezer-amoled",
+  "name": "Breezer AMOLED",
+  "version": "1.0.0",
+  "author": "Breezer team",
+  "license": "AGPL-3.0-or-later",
+  "description": "True-black OLED-friendly dark theme.",
+  "palette": {
+    "bg": "#000000",
+    "surface": "#0a0a0a",
+    "surface2": "#121212",
+    "primary": "#bb86fc",
+    "on-primary": "#000000",
+    "accent": "#03dac6",
+    "text": "#e6e6e6",
+    "text-secondary": "#8a8a8a",
+    "error": "#cf6679",
+    "radius": 6,
+    "spacing": 10
+  },
+  "layout": {
+    "left": "sidebar",
+    "right": "",
+    "bottom": "player",
+    "density": "compact"
+  }
+}

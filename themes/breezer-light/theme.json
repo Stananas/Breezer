@@ -1,0 +1,27 @@
+{
+  "id": "breezer-light",
+  "name": "Breezer Light",
+  "version": "1.0.0",
+  "author": "Breezer team",
+  "license": "AGPL-3.0-or-later",
+  "description": "Default light theme.",
+  "palette": {
+    "bg": "#f4f5f7",
+    "surface": "#ffffff",
+    "surface2": "#eceef2",
+    "primary": "#7c3aed",
+    "on-primary": "#ffffff",
+    "accent": "#0f766e",
+    "text": "#17181c",
+    "text-secondary": "#5b616b",
+    "error": "#dc2626",
+    "radius": 10,
+    "spacing": 12
+  },
+  "layout": {
+    "left": "sidebar",
+    "right": "",
+    "bottom": "player",
+    "density": "spacious"
+  }
+}

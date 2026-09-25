@@ -1,0 +1,152 @@
+// Shared design tokens, types and small reusable widgets.
+
+export struct Palette {
+    bg: color,
+    surface: color,
+    surface2: color,
+    primary: color,
+    on-primary: color,
+    accent: color,
+    text: color,
+    text-secondary: color,
+    error: color,
+    radius: length,
+    spacing: length,
+}
+
+export struct TrackInfo {
+    id: int,
+    title: string,
+    artist: string,
+    album: string,
+    cover: image,
+    duration: float,
+}
+
+export component IconBtn inherits Rectangle {
+    in property <Palette> palette;
+    in property <string> icon;
+    callback clicked();
+    width: 34px;
+    height: 34px;
+    border-radius: root.palette.radius;
+    background: ta.pressed ? root.palette.surface2 : transparent;
+    ta := TouchArea {
+        clicked => root.clicked();
+        mouse-cursor: pointer;
+    }
+    Text {
+        text: root.icon;
+        font-size: 15px;
+        color: root.palette.text;
+        horizontal-alignment: center;
+        vertical-alignment: center;
+    }
+}
+
+export component BreezerSlider inherits Rectangle {
+    in property <Palette> palette;
+    in property <float> minimum: 0.0;
+    in property <float> maximum: 100.0;
+    in property <float> progress: 0.0;
+    callback changed(float);
+    property <bool> dragging: false;
+    property <float> drag-ratio: 0.0;
+    property <float> ratio: root.dragging ? root.drag-ratio : root.progress;
+    property <length> track-height: 4px;
+    height: 26px;
+    // track
+    Rectangle {
+        y: (root.height - root.track-height) / 2;
+        height: root.track-height;
+        width: root.width;
+        border-radius: root.track-height / 2;
+        background: root.palette.surface;
+        Rectangle {
+            width: root.width * root.ratio;
+            height: root.track-height;
+            border-radius: root.track-height / 2;
+            background: root.palette.primary;
+        }
+    }
+    // handle
+    Rectangle {
+        x: root.width * root.ratio - 6px;
+        y: (root.height - 12px) / 2;
+        width: 12px;
+        height: 12px;
+        border-radius: 6px;
+        background: root.palette.on-primary;
+        border-width: 2px;
+        border-color: root.palette.primary;
+        visible: touch.has-hover || root.dragging;
+    }
+    touch := TouchArea {
+        width: 100%;
+        height: 100%;
+        pointer-event(event) => {
+            if event.button != PointerEventButton.left {
+                return;
+            }
+            if event.kind == PointerEventKind.down {
+                root.dragging = true;
+                root.drag-ratio = clamp(touch.mouse-x / root.width, 0.0, 1.0);
+                root.changed(root.minimum + (root.maximum - root.minimum) * root.drag-ratio);
+            }
+            if event.kind == PointerEventKind.up {
+                root.changed(root.minimum + (root.maximum - root.minimum) * root.drag-ratio);
+                root.dragging = false;
+            }
+        }
+        moved => {
+            if root.dragging {
+                root.drag-ratio = clamp(touch.mouse-x / root.width, 0.0, 1.0);
+                root.changed(root.minimum + (root.maximum - root.minimum) * root.drag-ratio);
+            }
+        }
+        mouse-cursor: pointer;
+    }
+}
+
+export component CoverCard inherits Rectangle {
+    in property <Palette> palette;
+    in property <TrackInfo> track;
+    callback clicked(int);
+    width: 168px;
+    height: 210px;
+    border-radius: root.palette.radius;
+    background: root.palette.surface;
+    TouchArea {
+        clicked => root.clicked(root.track.id);
+        mouse-cursor: pointer;
+    }
+    VerticalLayout {
+        padding: 10px;
+        spacing: 6px;
+        Rectangle {
+            width: 148px;
+            height: 148px;
+            border-radius: root.palette.radius;
+            clip: true;
+            background: root.palette.surface2;
+            Image {
+                width: 148px;
+                height: 148px;
+                source: root.track.cover;
+            }
+        }
+        Text {
+            text: root.track.title;
+            color: root.palette.text;
+            font-weight: 600;
+            font-size: 13px;
+            overflow: elide;
+        }
+        Text {
+            text: root.track.artist;
+            color: root.palette.text-secondary;
+            font-size: 12px;
+            overflow: elide;
+        }
+    }
+}

@@ -1,0 +1,29 @@
+name: Versioning (release-plz)
+
+# Automates semantic versioning + changelog from Conventional Commits:
+#  - push to main → opens/updates a "release" PR with version bumps + changelog
+#  - merging that PR (and pushing a v* tag) triggers the Release workflow.
+on:
+  push:
+    branches: [main]
+    paths: ["software/**"]
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  release-plz:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: software
+      - name: Run release-plz
+        uses: MarcoIeni/release-plz-action@v0.5
+        with:
+          manifest_path: software/Cargo.toml

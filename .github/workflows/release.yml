@@ -1,0 +1,66 @@
+name: Release
+
+# Triggered on v* tags (created by release-plz). Builds signed-less artifacts
+# for Linux / macOS / Windows via cargo-packager and attaches them to the Release.
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: release (${{ matrix.artifact }})
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            artifact: linux-x86_64
+          - os: macos-latest
+            artifact: macos-aarch64
+          - os: macos-13
+            artifact: macos-x86_64
+          - os: windows-latest
+            artifact: windows-x86_64
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Linux deps (audio/windowing/build)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libasound2-dev libxkbcommon-dev cmake clang
+
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: software
+
+      - name: Install cargo-packager
+        uses: taiki-e/install-action@cargo-packager
+
+      - name: Package
+        working-directory: software
+        run: cargo packager --release
+
+      - name: Collect artifacts + checksums
+        shell: bash
+        run: |
+          set -euo pipefail
+          shopt -s nullglob
+          mkdir -p dist
+          cp software/target/release/breezer*.{deb,appimage,rpm,dmg,msi,exe} dist/ 2>/dev/null || true
+          cp software/target/release/breezer dist/ 2>/dev/null || true
+          find dist -type f -exec sha256sum {} + > dist/SHA256SUMS.txt
+          cat dist/SHA256SUMS.txt
+
+      - name: Attach to GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/*
+          generate_release_notes: true
+          fail_on_unmatched_files: false

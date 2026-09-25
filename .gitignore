@@ -1,0 +1,19 @@
+# --- Rust (software/) ---
+software/target/
+**/*.rs.bk
+*.profraw
+
+# --- Node/Bun (site/) ---
+site/node_modules/
+site/.next/
+site/out/
+site/.bun/
+*.tsbuildinfo
+
+# --- OS/editor ---
+.DS_Store
+Thumbs.db
+*.swp
+*~
+.idea/
+.vscode/

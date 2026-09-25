@@ -1,0 +1,28 @@
+{
+  "name": "breezer-site",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Breezer website — Bun monolith: Next.js (static export) + Elysia.js API in one process.",
+  "scripts": {
+    "dev": "bun run dev:web",
+    "dev:web": "next dev",
+    "dev:api": "bun --watch src/server/index.ts",
+    "build": "next build",
+    "start": "bun src/server/index.ts"
+  },
+  "dependencies": {
+    "elysia": "^1.2.0",
+    "next": "^15.3.0",
+    "next-intl": "^3.26.0",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0"
+  },
+  "devDependencies": {
+    "@types/bun": "^1.2.0",
+    "@types/node": "^22.10.0",
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
+    "typescript": "^5.7.0"
+  }
+}

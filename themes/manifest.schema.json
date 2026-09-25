@@ -1,0 +1,47 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://github.com/Breezer-App/breezer/blob/main/themes/manifest.schema.json",
+  "title": "Breezer Theme Manifest",
+  "description": "Manifest for a Breezer theme: palette + optional layout/typography tokens.",
+  "type": "object",
+  "required": ["id", "name", "version", "palette"],
+  "properties": {
+    "id": { "type": "string", "pattern": "^[a-z0-9-]+$" },
+    "name": { "type": "string" },
+    "version": { "type": "string", "pattern": "^\\d+\\.\\d+\\.\\d+$" },
+    "author": { "type": "string" },
+    "license": { "type": "string", "default": "AGPL-3.0-or-later" },
+    "description": { "type": "string" },
+    "base": { "type": "string", "description": "Parent theme id to inherit from." },
+    "palette": {
+      "type": "object",
+      "properties": {
+        "bg":              { "type": "string", "pattern": "^#([0-9a-fA-F]{6}|[0-9a-fA-F]{8})$" },
+        "surface":         { "type": "string", "pattern": "^#([0-9a-fA-F]{6}|[0-9a-fA-F]{8})$" },
+        "surface2":        { "type": "string", "pattern": "^#([0-9a-fA-F]{6}|[0-9a-fA-F]{8})$" },
+        "primary":         { "type": "string", "pattern": "^#([0-9a-fA-F]{6}|[0-9a-fA-F]{8})$" },
+        "on-primary":      { "type": "string", "pattern": "^#([0-9a-fA-F]{6}|[0-9a-fA-F]{8})$" },
+        "accent":          { "type": "string", "pattern": "^#([0-9a-fA-F]{6}|[0-9a-fA-F]{8})$" },
+        "text":            { "type": "string", "pattern": "^#([0-9a-fA-F]{6}|[0-9a-fA-F]{8})$" },
+        "text-secondary":  { "type": "string", "pattern": "^#([0-9a-fA-F]{6}|[0-9a-fA-F]{8})$" },
+        "error":           { "type": "string", "pattern": "^#([0-9a-fA-F]{6}|[0-9a-fA-F]{8})$" },
+        "radius":          { "type": "number", "minimum": 0, "default": 8 },
+        "spacing":         { "type": "number", "minimum": 0, "default": 12 }
+      },
+      "required": ["bg", "surface", "surface2", "primary", "text"],
+      "additionalProperties": true
+    },
+    "layout": {
+      "type": "object",
+      "description": "Optional layout preset (same shape as a saved layout profile).",
+      "properties": {
+        "left":   { "type": "string", "enum": ["", "sidebar", "queue"] },
+        "right":  { "type": "string", "enum": ["", "sidebar", "queue"] },
+        "bottom": { "type": "string", "enum": ["", "player", "queue"] },
+        "density": { "type": "string", "enum": ["compact", "comfortable", "spacious"] }
+      },
+      "additionalProperties": true
+    }
+  },
+  "additionalProperties": false
+}

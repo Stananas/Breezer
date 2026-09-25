@@ -1,0 +1,80 @@
+// Content area: search box + grid of album/track cards.
+
+import { CoverCard, Palette, TrackInfo } from "./elements.slint";
+
+export component ContentView inherits Rectangle {
+    in property <Palette> palette;
+    in property <[TrackInfo]> results;
+    in property <string> status;
+    in property <string> view-title;
+    callback search-requested(string);
+    callback play-requested(int);
+
+    property <string> query: "";
+
+    background: root.palette.bg;
+    VerticalLayout {
+        padding-left: root.palette.spacing;
+        padding-right: root.palette.spacing;
+        padding-top: root.palette.spacing;
+        padding-bottom: root.palette.spacing;
+        spacing: root.palette.spacing;
+
+        HorizontalLayout {
+            spacing: 12px;
+            alignment: center;
+            Text {
+                text: root.view-title;
+                font-size: 22px;
+                font-weight: 800;
+                color: root.palette.text;
+            }
+            Rectangle { horizontal-stretch: 1; }
+            TextInput {
+                width: 280px;
+                height: 34px;
+                text <=> root.query;
+                color: root.palette.text;
+                accepted => root.search-requested(root.query);
+            }
+            Rectangle {
+                height: 34px;
+                border-radius: root.palette.radius;
+                background: root.palette.primary;
+                TouchArea {
+                    clicked => root.search-requested(root.query);
+                    mouse-cursor: pointer;
+                }
+                Text {
+                    text: @tr("Search");
+                    color: root.palette.on-primary;
+                    font-weight: 600;
+                    horizontal-alignment: center;
+                    vertical-alignment: center;
+                }
+            }
+        }
+
+        Rectangle {
+            vertical-stretch: 1;
+            if root.status != "":
+                Text {
+                    text: root.status;
+                    color: root.palette.text-secondary;
+                }
+            if root.status == "":
+                Flickable {
+                vertical-stretch: 1;
+                GridLayout {
+                    spacing: 14px;
+                    padding: 4px;
+                    for track[idx] in root.results: CoverCard {
+                        palette: root.palette;
+                        track: track;
+                        clicked(id) => root.play-requested(id);
+                    }
+                }
+            }
+        }
+    }
+}

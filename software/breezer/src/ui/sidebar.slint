@@ -1,0 +1,183 @@
+// Sidebar: navigation, Deezer login (ARL), theme & language, layout tools.
+
+import { Palette } from "./elements.slint";
+
+component NavItem inherits Rectangle {
+    in property <Palette> palette;
+    in property <string> label;
+    in property <string> value;
+    in property <string> current;
+    callback clicked(string);
+    height: 34px;
+    border-radius: root.palette.radius;
+    background: root.current == root.value ? root.palette.surface2 : transparent;
+    TouchArea {
+        clicked => root.clicked(root.value);
+        mouse-cursor: pointer;
+    }
+    HorizontalLayout {
+        padding-left: 10px;
+        alignment: center;
+        Text {
+            text: root.label;
+            color: root.current == root.value ? root.palette.primary : root.palette.text;
+            font-weight: 600;
+        }
+    }
+}
+
+component ActionButton inherits Rectangle {
+    in property <Palette> palette;
+    in property <string> label;
+    in property <bool> subtle;
+    in property <bool> enabled: true;
+    callback clicked();
+    height: 30px;
+    border-radius: root.palette.radius;
+    background: root.enabled ? (root.subtle ? root.palette.surface : root.palette.surface2) : root.palette.surface2;
+    opacity: root.enabled ? 1.0 : 0.5;
+    TouchArea {
+        enabled: root.enabled;
+        clicked => root.clicked();
+        mouse-cursor: pointer;
+    }
+    Text {
+        text: root.label;
+        color: root.palette.text;
+        font-size: 12px;
+        horizontal-alignment: center;
+        vertical-alignment: center;
+    }
+}
+
+component Pill inherits Rectangle {
+    in property <Palette> palette;
+    in property <string> label;
+    in property <bool> active;
+    callback clicked();
+    height: 24px;
+    border-radius: 12px;
+    background: root.active ? root.palette.primary : root.palette.surface2;
+    TouchArea {
+        clicked => root.clicked();
+        mouse-cursor: pointer;
+    }
+    Text {
+        text: root.label;
+        font-size: 12px;
+        color: root.active ? root.palette.on-primary : root.palette.text;
+        horizontal-alignment: center;
+        vertical-alignment: center;
+    }
+}
+
+component SectionLabel inherits Text {
+    in property <color> fg;
+    color: root.fg;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 1px;
+}
+
+export component Sidebar inherits Rectangle {
+    in property <Palette> palette;
+    in property <string> username;
+    in property <int> auth-state;
+    in property <string> current-view;
+    in property <string> theme-id;
+    in property <string> ui-language;
+    callback view-requested(string);
+    callback connect-requested(string);
+    callback open-browser-requested();
+    callback toggle-right-panel-requested();
+    callback theme-changed(string);
+    callback language-changed(string);
+    callback open-theme-editor-requested();
+    callback save-layout-requested();
+    callback reset-layout-requested();
+
+    property <string> arl-input: "";
+
+    background: root.palette.surface;
+
+    VerticalLayout {
+        padding: 16px;
+        spacing: 8px;
+        Text {
+            text: "Breezer";
+            font-size: 24px;
+            font-weight: 800;
+            color: root.palette.primary;
+        }
+        Text {
+            text: @tr("Not connected");
+            color: root.palette.text-secondary;
+            font-size: 12px;
+            visible: root.auth-state < 2;
+        }
+        Text {
+            text: root.username;
+            color: root.palette.accent;
+            font-size: 12px;
+            visible: root.auth-state >= 2;
+        }
+
+        NavItem { palette: root.palette; label: @tr("Home"); value: "home"; current: root.current-view; clicked(v) => root.view-requested(v); }
+        NavItem { palette: root.palette; label: @tr("Favorites"); value: "favorites"; current: root.current-view; clicked(v) => root.view-requested(v); }
+        NavItem { palette: root.palette; label: @tr("Playlists"); value: "playlists"; current: root.current-view; clicked(v) => root.view-requested(v); }
+
+        Rectangle { height: 1px; background: root.palette.surface2; }
+
+        if root.auth-state < 2: VerticalLayout {
+            spacing: 6px;
+            SectionLabel { fg: root.palette.text-secondary; text: @tr("Deezer login — ARL"); }
+            TextInput {
+                height: 32px;
+                text <=> root.arl-input;
+                color: root.palette.text;
+            }
+            HorizontalLayout {
+                spacing: 6px;
+                ActionButton {
+                    palette: root.palette; label: @tr("Open Deezer");
+                    clicked => root.open-browser-requested();
+                }
+                ActionButton {
+                    palette: root.palette; label: @tr("Connect");
+                    enabled: root.arl-input != "";
+                    clicked => root.connect-requested(root.arl-input);
+                }
+            }
+        }
+
+        Rectangle { height: 1px; background: root.palette.surface2; }
+
+        SectionLabel { fg: root.palette.text-secondary; text: @tr("Theme"); }
+        HorizontalLayout {
+            spacing: 6px;
+            Pill { palette: root.palette; label: "Dark"; active: root.theme-id == "breezer-dark"; clicked => root.theme-changed("breezer-dark"); }
+            Pill { palette: root.palette; label: "Light"; active: root.theme-id == "breezer-light"; clicked => root.theme-changed("breezer-light"); }
+            Pill { palette: root.palette; label: "AMOLED"; active: root.theme-id == "breezer-amoled"; clicked => root.theme-changed("breezer-amoled"); }
+        }
+
+        SectionLabel { fg: root.palette.text-secondary; text: @tr("Language"); }
+        HorizontalLayout {
+            spacing: 6px;
+            Pill { palette: root.palette; label: "EN"; active: root.ui-language == "en"; clicked => root.language-changed("en"); }
+            Pill { palette: root.palette; label: "FR"; active: root.ui-language == "fr"; clicked => root.language-changed("fr"); }
+        }
+
+        Rectangle { vertical-stretch: 1; }
+
+        ActionButton { palette: root.palette; label: @tr("Toggle queue panel"); subtle: true; clicked => root.toggle-right-panel-requested(); }
+        ActionButton { palette: root.palette; label: @tr("Save layout"); subtle: true; clicked => root.save-layout-requested(); }
+        ActionButton { palette: root.palette; label: @tr("Reset layout"); subtle: true; clicked => root.reset-layout-requested(); }
+        ActionButton { palette: root.palette; label: @tr("Theme editor (v0.2)"); subtle: true; clicked => root.open-theme-editor-requested(); }
+
+        Text {
+            text: @tr("v0.1 — AGPL-3.0");
+            color: root.palette.text-secondary;
+            font-size: 11px;
+        }
+    }
+}

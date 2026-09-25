@@ -1,0 +1,27 @@
+{
+  "id": "breezer-dark",
+  "name": "Breezer Dark",
+  "version": "1.0.0",
+  "author": "Breezer team",
+  "license": "AGPL-3.0-or-later",
+  "description": "Default dark theme.",
+  "palette": {
+    "bg": "#0f1012",
+    "surface": "#17181c",
+    "surface2": "#1f2127",
+    "primary": "#a238ff",
+    "on-primary": "#ffffff",
+    "accent": "#2a9d8f",
+    "text": "#f2f3f5",
+    "text-secondary": "#9aa0a8",
+    "error": "#e5484d",
+    "radius": 8,
+    "spacing": 12
+  },
+  "layout": {
+    "left": "sidebar",
+    "right": "",
+    "bottom": "player",
+    "density": "comfortable"
+  }
+}

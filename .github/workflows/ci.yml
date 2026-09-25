@@ -1,0 +1,38 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+    paths: ["software/**"]
+  pull_request:
+    paths: ["software/**"]
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  check:
+    name: fmt + clippy + test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Linux deps (audio/windowing/build)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libasound2-dev libxkbcommon-dev cmake clang
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: software
+      - name: rustfmt
+        run: cargo fmt --all --manifest-path software/Cargo.toml -- --check
+      - name: clippy
+        run: cargo clippy --workspace --manifest-path software/Cargo.toml -- -D warnings
+      - name: test
+        run: cargo test --workspace --manifest-path software/Cargo.toml
+      - name: validate themes JSON
+        run: python3 -m json.tool themes/breezer-dark/theme.json >/dev/null \
+               && python3 -m json.tool themes/breezer-light/theme.json >/dev/null \
+               && python3 -m json.tool themes/breezer-amoled/theme.json >/dev/null

@@ -1,0 +1,38 @@
+{
+  "nav": { "home": "Home", "download": "Download", "themes": "Themes", "docs": "Docs" },
+  "hero": {
+    "title": "Listen to Deezer, natively.",
+    "subtitle": "Breezer is an ultra-lightweight, open-source Deezer client for Linux, macOS and Windows — built with Rust and Slint.",
+    "cta": "Download Breezer",
+    "ctaAlt": "See the code on GitHub",
+    "platforms": "Windows · macOS · Linux"
+  },
+  "features": {
+    "title": "Why Breezer?",
+    "lightweight": "Lightweight — small binary, low RAM, no Electron.",
+    "themes": "Customizable — themes, colors, layouts, workspaces.",
+    "privacy": "Private — your ARL stays on your machine.",
+    "open": "Open source — AGPL-3.0, auditable, community-driven."
+  },
+  "download": {
+    "title": "Download",
+    "intro": "Pre-built installers and portable archives are published on GitHub Releases with auto-update.",
+    "linux": "Linux (AppImage / deb)",
+    "macos": "macOS (dmg)",
+    "windows": "Windows (msi / nsis)",
+    "latest": "Latest release",
+    "platformMissing": "Screenshots & platform-specific details coming soon — contribute via our community call!"
+  },
+  "themes": {
+    "title": "Themes",
+    "intro": "Community themes change not just colors — palette, layout and typography. Each accepted theme appears here."
+  },
+  "docs": {
+    "title": "Documentation",
+    "intro": "Install, get your ARL, build from source, write plugins and themes.",
+    "arl": "Get your Deezer ARL",
+    "plugins": "Plugin API",
+    "themesGuide": "Create a theme"
+  },
+  "footer": "AGPL-3.0 — independent, not affiliated with Deezer."
+}

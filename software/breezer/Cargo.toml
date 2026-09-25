@@ -1,0 +1,60 @@
+[package]
+name = "breezer"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+homepage.workspace = true
+description = "Ultra-lightweight native Deezer client (Rust + Slint)"
+default-run = "breezer"
+
+[dependencies]
+breezer-plugin-api = { workspace = true }
+slint = { workspace = true }
+tokio = { workspace = true }
+reqwest = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+jpeg-decoder = { workspace = true }
+log = { workspace = true }
+env_logger = { workspace = true }
+dirs = { workspace = true }
+webbrowser = { workspace = true }
+md-5 = { workspace = true }
+aes = { workspace = true }
+cbc = { workspace = true }
+hex = { workspace = true }
+semver = { workspace = true }
+url = { workspace = true }
+symphonia = { workspace = true }
+rodio = { workspace = true }
+
+[build-dependencies]
+slint-build = { workspace = true }
+
+[lib]
+name = "breezer"
+path = "src/lib.rs"
+
+[[bin]]
+name = "breezer"
+path = "src/main.rs"
+
+# cargo-packager (release bundling: AppImage/deb on Linux, dmg on macOS, nsis/msi on Windows)
+[package.metadata.packager]
+product-name = "Breezer"
+identifier = "app.breezer.desktop"
+author = "Breezer Contributors"
+description = "Ultra-lightweight native Deezer client"
+license = "AGPL-3.0-or-later"
+
+[package.metadata.packager.linux]
+formats = ["deb", "appimage"]
+
+[package.metadata.packager.macos]
+formats = ["dmg"]
+
+[package.metadata.packager.windows]
+formats = ["nsis"]

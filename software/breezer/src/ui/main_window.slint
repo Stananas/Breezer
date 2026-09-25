@@ -1,0 +1,396 @@
+// MainWindow — root document: exposes the app API and hosts the DockShell
+// (dockable layout with native drag & drop panel docking).
+//
+// The DragArea/DropArea-based dock machinery lives in this root file so the
+// exported `DockBridge` global (reaching Rust) and every nested element share
+// one document — no cross-file import cycle.
+//
+// v0.1 dockable panels: "sidebar" and "queue" (the player stays at the bottom).
+
+import { BreezerSlider, IconBtn, Palette, TrackInfo } from "./elements.slint";
+import { Sidebar } from "./sidebar.slint";
+import { ContentView } from "./content.slint";
+import { PlayerBar } from "./player_bar.slint";
+import { QueuePanel } from "./queue_panel.slint";
+
+// Payload conversion for the native drag & drop panel docking.
+// (Rust reaches globals only when they are exported from the root file.)
+export global DockBridge {
+    pure callback panel-to-transfer(string) -> data-transfer;
+    pure callback transfer-to-panel(data-transfer) -> string;
+}
+
+// A dockable panel wrapper: drag handle header (DragArea) + content slot.
+component DockFrame inherits Rectangle {
+    in-out property <string> panel-kind;
+    in property <Palette> palette;
+    out property <bool> dragging: grab-area.dragging;
+
+    VerticalLayout {
+        spacing: 0;
+        Rectangle {
+            height: 24px;
+            background: root.palette.surface2;
+            grab-area := DragArea {
+                width: 100%;
+                height: 100%;
+                allow-move: true;
+                data: DockBridge.panel-to-transfer(root.panel-kind);
+            }
+            Text {
+                text: root.panel-kind == "sidebar" ? @tr("Navigation") :
+                      (root.panel-kind == "queue" ? @tr("Queue") : @tr("Player"));
+                font-size: 11px;
+                color: root.palette.text-secondary;
+                vertical-alignment: center;
+                horizontal-alignment: center;
+            }
+        }
+        Rectangle {
+            vertical-stretch: 1;
+            @children
+        }
+    }
+}
+
+// A dock zone (native DropArea) with hover highlight.
+component DropZone inherits Rectangle {
+    in property <Palette> palette;
+    in property <string> zone-id;
+    in property <bool> zonable;
+    in-out property <string> drop-panel;
+    callback dropped-here(string, string);
+    out property <bool> hovered: dz.has-drag;
+    dz := DropArea {
+        width: 100%;
+        height: 100%;
+        can-drop(event) => root.zonable ? DragAction.move : DragAction.none;
+        dropped(event) => {
+            if root.zonable {
+                root.dropped-here(root.drop-panel, root.zone-id);
+            }
+            return event.proposed-action;
+        }
+    }
+    background: dz.has-drag ? root.palette.accent : transparent;
+    opacity: dz.has-drag ? 0.22 : 0.0;
+}
+
+component DockShell inherits Rectangle {
+    in property <Palette> palette;
+    in property <string> username;
+    in property <int> auth-state;
+    in property <string> current-view;
+    in property <string> view-title;
+    in property <[TrackInfo]> search-results;
+    in property <string> search-status;
+    in property <bool> playing;
+    in property <float> position;
+    in property <float> progress-duration;
+    in property <string> position-label;
+    in property <string> duration-label;
+    in property <float> volume;
+    in property <TrackInfo> current-track;
+    in property <bool> player-enabled;
+    in property <string> theme-id;
+    in property <string> ui-language;
+    in property <int> queue-index;
+
+    in property <string> left-panel;
+    in property <string> right-panel;
+    in property <string> bottom-panel;
+
+    callback search-requested(string);
+    callback connect-requested(string);
+    callback open-browser-requested();
+    callback view-requested(string);
+    callback play-requested(int);
+    callback play-index-requested(int);
+    callback toggle-requested();
+    callback prev-requested();
+    callback next-requested();
+    callback seek-requested(float);
+    callback volume-requested(float);
+    callback dock-requested(string, string);
+    callback toggle-right-panel-requested();
+    callback theme-changed(string);
+    callback language-changed(string);
+    callback open-theme-editor-requested();
+    callback save-layout-requested();
+    callback reset-layout-requested();
+
+    // Which panel is being dragged right now — derived from the always-present
+    // frames' DragArea `dragging` flags (no payload transfer needed).
+    property <string> drag-panel:
+        left-frame.dragging ? (root.left-panel == "sidebar" ? "sidebar" : "queue") :
+        (right-frame.dragging ? (root.right-panel == "sidebar" ? "sidebar" : "queue") :
+        (bottom-frame.dragging ? (root.bottom-panel == "player" ? "player" : "queue") : ""));
+    property <bool> drag-running: drag-panel != "";
+
+    // --- main dock layout -------------------------------------------------
+    VerticalLayout {
+        width: 100%;
+        height: 100%;
+        spacing: 0;
+        HorizontalLayout {
+            vertical-stretch: 1;
+            spacing: 0;
+
+            // LEFT slot
+            Rectangle {
+                visible: root.left-panel != "";
+                width: 236px;
+                left-frame := DockFrame {
+                    panel-kind: root.left-panel == "sidebar" ? "sidebar" : "queue";
+                    palette: root.palette;
+                    Sidebar {
+                        visible: root.left-panel == "sidebar";
+                        palette: root.palette;
+                        username: root.username;
+                        auth-state: root.auth-state;
+                        current-view: root.current-view;
+                        theme-id: root.theme-id;
+                        ui-language: root.ui-language;
+                        view-requested(v) => root.view-requested(v);
+                        connect-requested(arl) => root.connect-requested(arl);
+                        open-browser-requested => root.open-browser-requested();
+                        toggle-right-panel-requested => root.toggle-right-panel-requested();
+                        theme-changed(s) => root.theme-changed(s);
+                        language-changed(s) => root.language-changed(s);
+                        open-theme-editor-requested => root.open-theme-editor-requested();
+                        save-layout-requested => root.save-layout-requested();
+                        reset-layout-requested => root.reset-layout-requested();
+                    }
+                    QueuePanel {
+                        visible: root.left-panel == "queue";
+                        palette: root.palette;
+                        queue: root.search-results;
+                        current-index: root.queue-index;
+                        close-requested => root.toggle-right-panel-requested();
+                        play-index-requested(i) => root.play-index-requested(i);
+                    }
+                }
+            }
+
+            // CENTER slot (content — locked)
+            Rectangle {
+                horizontal-stretch: 1;
+                ContentView {
+                    palette: root.palette;
+                    results: root.search-results;
+                    status: root.search-status;
+                    view-title: root.view-title;
+                    search-requested(q) => root.search-requested(q);
+                    play-requested(id) => root.play-requested(id);
+                }
+            }
+
+            // RIGHT slot
+            Rectangle {
+                visible: root.right-panel != "";
+                width: 300px;
+                right-frame := DockFrame {
+                    panel-kind: root.right-panel == "sidebar" ? "sidebar" : "queue";
+                    palette: root.palette;
+                    Sidebar {
+                        visible: root.right-panel == "sidebar";
+                        palette: root.palette;
+                        username: root.username;
+                        auth-state: root.auth-state;
+                        current-view: root.current-view;
+                        theme-id: root.theme-id;
+                        ui-language: root.ui-language;
+                        view-requested(v) => root.view-requested(v);
+                        connect-requested(arl) => root.connect-requested(arl);
+                        open-browser-requested => root.open-browser-requested();
+                        toggle-right-panel-requested => root.toggle-right-panel-requested();
+                        theme-changed(s) => root.theme-changed(s);
+                        language-changed(s) => root.language-changed(s);
+                        open-theme-editor-requested => root.open-theme-editor-requested();
+                        save-layout-requested => root.save-layout-requested();
+                        reset-layout-requested => root.reset-layout-requested();
+                    }
+                    QueuePanel {
+                        visible: root.right-panel == "queue";
+                        palette: root.palette;
+                        queue: root.search-results;
+                        current-index: root.queue-index;
+                        close-requested => root.toggle-right-panel-requested();
+                        play-index-requested(i) => root.play-index-requested(i);
+                    }
+                }
+            }
+        }
+
+        // BOTTOM slot
+        Rectangle {
+            visible: root.bottom-panel != "";
+            height: 116px;
+            bottom-frame := DockFrame {
+                panel-kind: root.bottom-panel == "player" ? "player" : "queue";
+                palette: root.palette;
+                PlayerBar {
+                    visible: root.bottom-panel == "player";
+                    palette: root.palette;
+                    playing: root.playing;
+                    position: root.position;
+                    progress-duration: root.progress-duration;
+                    position-label: root.position-label;
+                    duration-label: root.duration-label;
+                    volume: root.volume;
+                    current-track: root.current-track;
+                    toggle-requested => root.toggle-requested();
+                    prev-requested => root.prev-requested();
+                    next-requested => root.next-requested();
+                    seek-requested(v) => root.seek-requested(v);
+                    volume-requested(v) => root.volume-requested(v);
+                }
+                QueuePanel {
+                    visible: root.bottom-panel == "queue";
+                    palette: root.palette;
+                    queue: root.search-results;
+                    current-index: root.queue-index;
+                    close-requested => root.toggle-right-panel-requested();
+                    play-index-requested(i) => root.play-index-requested(i);
+                }
+            }
+        }
+    }
+
+    // --- dock drop zones (overlay, only while a drag is in flight) --------
+    left-zone := DropZone {
+        zone-id: "left";
+        palette: root.palette;
+        zonable: root.drag-running;
+        drop-panel: root.drag-panel;
+        visible: root.drag-running;
+        x: 0px;
+        y: 0px;
+        width: root.width * 0.3;
+        height: root.height;
+        dropped-here(p, t) => root.dock-requested(p, t);
+    }
+    right-zone := DropZone {
+        zone-id: "right";
+        palette: root.palette;
+        zonable: root.drag-running;
+        drop-panel: root.drag-panel;
+        visible: root.drag-running;
+        x: root.width - root.width * 0.3;
+        y: 0px;
+        width: root.width * 0.3;
+        height: root.height;
+        dropped-here(p, t) => root.dock-requested(p, t);
+    }
+    bottom-zone := DropZone {
+        zone-id: "bottom";
+        palette: root.palette;
+        zonable: root.drag-running;
+        drop-panel: root.drag-panel;
+        visible: root.drag-running;
+        x: 0px;
+        y: root.height - 120px;
+        width: root.width;
+        height: 120px;
+        dropped-here(p, t) => {
+            // The player panel is not dockable in v0.1 — only sidebar/queue.
+            if p == "sidebar" || p == "queue" {
+                root.dock-requested(p, t);
+            }
+        }
+    }
+}
+
+export component MainWindow inherits Window {
+    title: @tr("Breezer");
+    preferred-width: 1180px;
+    preferred-height: 760px;
+    background: self.palette.bg;
+
+    in property <Palette> palette;
+
+    in property <string> username;
+    in property <int> auth-state;
+    in property <string> current-view;
+
+    in property <[TrackInfo]> search-results;
+    in property <string> search-status;
+
+    in property <bool> playing;
+    in property <float> position;
+    in property <float> progress-duration;
+    in property <string> position-label;
+    in property <string> duration-label;
+    in property <float> volume;
+    in property <TrackInfo> current-track;
+    in property <bool> player-enabled;
+
+    in property <string> left-panel;
+    in property <string> right-panel;
+    in property <string> bottom-panel;
+    in property <int> queue-index;
+
+    in property <string> theme-id;
+    in property <string> ui-language;
+
+    callback search-requested(string);
+    callback connect-requested(string);
+    callback open-browser-requested();
+    callback view-requested(string);
+    callback play-requested(int);
+    callback play-index-requested(int);
+    callback toggle-requested();
+    callback prev-requested();
+    callback next-requested();
+    callback seek-requested(float);
+    callback volume-requested(float);
+    callback dock-requested(string, string);
+    callback toggle-right-panel-requested();
+    callback theme-changed(string);
+    callback language-changed(string);
+    callback open-theme-editor-requested();
+    callback save-layout-requested();
+    callback reset-layout-requested();
+
+    DockShell {
+        palette <=> root.palette;
+        username <=> root.username;
+        auth-state <=> root.auth-state;
+        current-view <=> root.current-view;
+        search-results <=> root.search-results;
+        search-status <=> root.search-status;
+        playing <=> root.playing;
+        position <=> root.position;
+        progress-duration <=> root.progress-duration;
+        position-label <=> root.position-label;
+        duration-label <=> root.duration-label;
+        volume <=> root.volume;
+        current-track <=> root.current-track;
+        player-enabled <=> root.player-enabled;
+        left-panel <=> root.left-panel;
+        right-panel <=> root.right-panel;
+        bottom-panel <=> root.bottom-panel;
+        queue-index <=> root.queue-index;
+        theme-id <=> root.theme-id;
+        ui-language <=> root.ui-language;
+
+        search-requested(q) => root.search-requested(q);
+        connect-requested(arl) => root.connect-requested(arl);
+        open-browser-requested => root.open-browser-requested();
+        view-requested(v) => root.view-requested(v);
+        play-requested(id) => root.play-requested(id);
+        play-index-requested(i) => root.play-index-requested(i);
+        toggle-requested => root.toggle-requested();
+        prev-requested => root.prev-requested();
+        next-requested => root.next-requested();
+        seek-requested(v) => root.seek-requested(v);
+        volume-requested(v) => root.volume-requested(v);
+        dock-requested(p, t) => root.dock-requested(p, t);
+        toggle-right-panel-requested => root.toggle-right-panel-requested();
+        theme-changed(s) => root.theme-changed(s);
+        language-changed(s) => root.language-changed(s);
+        open-theme-editor-requested => root.open-theme-editor-requested();
+        save-layout-requested => root.save-layout-requested();
+        reset-layout-requested => root.reset-layout-requested();
+    }
+}
