@@ -37,6 +37,17 @@ Pas d'Electron. Pas de navigateur embarqué. Juste un binaire natif qui streame 
 
 Un lecteur musical **natif, petit et rapide** pour **Deezer** : recherche, streaming, navigation dans vos playlists et votre historique d'écoute, avec une interface propre et personnalisable. Il reprend le même flux d'authentification et de streaming que [tui-dzr](https://github.com/dunderdoo/tui-dzr) (ARL, déchiffrement Blowfish).
 
+## 🧪 Plateformes testées
+
+| Plateforme | Statut |
+|---|---|
+| 🐧 **Linux — Arch** (dev actuel) | ✅ Testé, utilisé tous les jours |
+| 🐧 Linux — autres distros (Ubuntu, Fedora, Debian…) | 🕐 À tester |
+| 🍎 macOS | 🕐 À tester |
+| 🪟 Windows | 🕐 À tester |
+
+> Toutes les plateformes sont compilées et packagées en CI (workflow Release vert sur Linux, macOS et Windows) ; **testé en conditions réelles pour l'instant sur Arch Linux.** Aidez-nous à cocher les autres cases !
+
 ## ✨ Fonctionnalités clés
 
 - 🧊 **Léger** — binaire de quelques Mo, empreinte RAM réduite.
@@ -92,6 +103,12 @@ cargo test -p breezer
 ```
 
 Docs : [Thèmes](docs/THEMES.md) · [Plugins](docs/PLUGINS.md) · [Captures](docs/SCREENSHOTS.md) · [Contribuer](CONTRIBUTING.md)
+
+## 🤝 Contribuer
+
+Les contributions sont **très bienvenues** — signalements de bugs, fonctionnalités, thèmes, traductions, documentation, ou simplement retours.
+Ouvrez une [issue](https://github.com/Stananas/Breezer/issues) ou une PR — voir [CONTRIBUTING.md](CONTRIBUTING.md)
+pour le guide rapide (build, tests, conventions).
 
 ## ⚖️ Licence & aspects légaux
 

@@ -38,6 +38,17 @@ No Electron. No bundled browser. Just a native binary that streams your music an
 
 A small, fast, native music player for **Deezer** — search, stream, browse your playlists and listening history with a clean, customizable UI. Built around the same auth & streaming flow as [tui-dzr](https://github.com/dunderdoo/tui-dzr) (ARL-based, Blowfish decryption).
 
+## 🧪 Tested platforms
+
+| Platform | Status |
+|---|---|
+| 🐧 **Linux — Arch** (current dev) | ✅ Tested, used daily |
+| 🐧 Linux — other distros (Ubuntu, Fedora, Debian…) | 🕐 To test |
+| 🍎 macOS | 🕐 To test |
+| 🪟 Windows | 🕐 To test |
+
+> All platforms are compiled & packaged in CI (Release workflow is green on Linux, macOS and Windows); **runtime-tested so far on Arch Linux.** Help us check the other boxes!
+
 ## ✨ Key features
 
 - 🧊 **Lightweight** — a few MB binary, small RAM footprint.
@@ -93,6 +104,12 @@ cargo test -p breezer
 ```
 
 Docs: [Themes](docs/THEMES.md) · [Plugins](docs/PLUGINS.md) · [Screenshots](docs/SCREENSHOTS.md) · [Contributing](CONTRIBUTING.md)
+
+## 🤝 Contributing
+
+Contributions are **very welcome** — bug reports, features, themes, translations, docs, or simply feedback.
+Open an [issue](https://github.com/Stananas/Breezer/issues) or a PR — see [CONTRIBUTING.md](CONTRIBUTING.md)
+for the short build/tests/conventions guide.
 
 ## ⚖️ License & legal
 
