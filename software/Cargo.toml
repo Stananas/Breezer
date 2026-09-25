@@ -16,7 +16,7 @@ homepage = "https://github.com/Breezer-App/breezer"
 breezer-plugin-api = { path = "plugin-api" }
 
 slint = { version = "1.18", default-features = false, features = [
-  "backend-winit-x11", "renderer-femtovg", "compat-1-2", "std",
+  "backend-winit-x11", "renderer-software", "compat-1-2", "std",
   "accessibility", "image-default-formats",
 ] }
 slint-build = "1.18"
