@@ -1,8 +1,8 @@
-// Player bar — 100% absolute coordinates (immune to Slint layout-centering).
-//  LEFT   cover, vertically centered
-//  CENTER transport buttons (prev / play / next) ABOVE the duration slider,
-//         with elapsed time at the left end and total at the right end
-//  RIGHT  volume slider + percentage tooltip on hover
+// Player bar — 100% absolute coordinates.
+//  LEFT   cover + title/artist, vertically centered
+//  CENTER transport (prev/play/next) ABOVE a narrower duration slider,
+//         elapsed time at the slider's left end, total at the right end
+//  RIGHT  volume slider + visible % tooltip (on block OR slider hover)
 
 import { BreezerSlider, IconBtn, Palette, TrackInfo } from "./elements.slint";
 
@@ -25,11 +25,10 @@ export component PlayerBar inherits Rectangle {
     height: 94px;
     background: root.palette.surface2;
 
-    // top hairline
     Rectangle { x: 0px; y: 0px; width: 100%; height: 1px; background: root.palette.surface; }
 
     // ------------------------------------------------------------------
-    // LEFT — cover, vertically centered
+    // LEFT — cover + title/artist, vertically centered
     // ------------------------------------------------------------------
     Rectangle {
         x: 16px;
@@ -46,13 +45,44 @@ export component PlayerBar inherits Rectangle {
             image-fit: cover;
         }
     }
+    Rectangle {
+        x: 86px;
+        y: 20px;
+        width: 210px;
+        height: 24px;
+        clip: true;
+        Text {
+            width: 100%;
+            height: 100%;
+            text: root.current-track.id >= 0 ? root.current-track.title : @tr("Breezer");
+            horizontal-alignment: left;
+            vertical-alignment: center;
+            color: root.palette.text;
+            font-weight: 600;
+        }
+    }
+    Rectangle {
+        x: 86px;
+        y: 48px;
+        width: 210px;
+        height: 20px;
+        clip: true;
+        Text {
+            width: 100%;
+            height: 100%;
+            text: root.current-track.artist;
+            horizontal-alignment: left;
+            vertical-alignment: center;
+            color: root.palette.text-secondary;
+            font-size: 12px;
+        }
+    }
 
     // ------------------------------------------------------------------
     // CENTER — transport row + duration slider row
     // ------------------------------------------------------------------
-    // transport cluster width: 36 + 44 + 36 + 2*8 spacing = 132
     Rectangle {
-        x: 292px + (root.width - 292px - 176px - 132px) / 2;
+        x: 312px + (root.width - 312px - 176px - 132px) / 2;
         y: 10px;
         width: 132px;
         height: 44px;
@@ -92,11 +122,11 @@ export component PlayerBar inherits Rectangle {
         }
     }
 
-    // duration slider row (width of the center block)
+    // duration slider row — slider reduced (≤ 420px) and centered
     Rectangle {
-        x: 292px;
+        x: 312px;
         y: 62px;
-        width: root.width - 292px - 176px;
+        width: root.width - 312px - 176px;
         height: 26px;
         Rectangle {
             x: 0px;
@@ -115,9 +145,9 @@ export component PlayerBar inherits Rectangle {
             }
         }
         BreezerSlider {
-            x: 50px;
+            x: (root.width - 312px - 176px - 84px) / 2 + 42px;
             y: 0px;
-            width: root.width - 292px - 176px - 100px;
+            width: min(root.width - 312px - 176px - 84px, 420px);
             height: 26px;
             palette: root.palette;
             minimum: 0;
@@ -126,7 +156,7 @@ export component PlayerBar inherits Rectangle {
             changed(v) => root.seek-requested(v);
         }
         Rectangle {
-            x: root.width - 292px - 176px - 42px;
+            x: root.width - 312px - 176px - 42px;
             y: 0px;
             width: 42px;
             height: 26px;
@@ -144,7 +174,7 @@ export component PlayerBar inherits Rectangle {
     }
 
     // ------------------------------------------------------------------
-    // RIGHT — volume + tooltip
+    // RIGHT — volume + visible tooltip
     // ------------------------------------------------------------------
     Rectangle {
         x: root.width - 160px;
@@ -156,14 +186,18 @@ export component PlayerBar inherits Rectangle {
             height: 100%;
             mouse-cursor: pointer;
         }
+        // Tooltip: above the volume block; shown on hover of the block OR the
+        // volume slider itself.
         Rectangle {
-            x: -20px;
-            y: 0px;
-            width: root.width + 40px;
-            height: 20px;
-            visible: vta.has-hover;
+            x: root.width - 160px + 35px;
+            y: -28px;
+            width: 90px;
+            height: 24px;
+            visible: vta.has-hover || vsl.hovered;
             border-radius: 6px;
-            background: root.palette.surface;
+            background: root.palette.bg;
+            border-width: 1px;
+            border-color: root.palette.primary;
             Text {
                 text: root.volume-label + " %";
                 width: 100%;
@@ -171,7 +205,7 @@ export component PlayerBar inherits Rectangle {
                 horizontal-alignment: center;
                 vertical-alignment: center;
                 color: root.palette.text;
-                font-size: 12px;
+                font-size: 13px;
                 font-weight: 600;
             }
         }
@@ -183,9 +217,9 @@ export component PlayerBar inherits Rectangle {
             source: root.volume > 0 ? @image-url("icons/volume-2.png") : @image-url("icons/volume-x.png");
             colorize: root.palette.text-secondary;
         }
-        BreezerSlider {
+        vsl := BreezerSlider {
             x: 30px;
-            y: (root.height + 6px) / 2;
+            y: (root.height - 20px) / 2;
             width: 126px;
             height: 26px;
             palette: root.palette;

@@ -71,6 +71,24 @@ impl Engine {
         self.playing
     }
 
+    /// True once a decodable source has been appended (paused or playing).
+    pub fn has_loaded(&self) -> bool {
+        self.player.as_ref().map(|p| p.len() > 0).unwrap_or(false)
+    }
+
+    /// Current playback position in seconds, if a source is loaded.
+    pub fn position_secs(&self) -> Option<f32> {
+        self.player.as_ref().map(|p| p.get_pos().as_secs_f32())
+    }
+
+    /// True when a source finished playing (buffer drained and not paused).
+    pub fn ended(&self) -> bool {
+        self.player
+            .as_ref()
+            .map(|p| p.len() == 0 && !p.is_paused())
+            .unwrap_or(false)
+    }
+
     pub fn set_volume(&mut self, volume: f32) {
         self.volume = volume.clamp(0.0, 1.0);
         self.apply_volume();

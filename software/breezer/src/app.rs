@@ -89,6 +89,7 @@ enum Evt {
     Playlists(Vec<PlaylistCard>),
     Status(String),
     VolumeLabel(String),
+    PositionLabel(String),
     Auth { state: i32, username: String },
     AuthFailed(String),
     TrackChanged(TrackCard),
@@ -557,7 +558,10 @@ fn run_gui() -> Result<()> {
             let _ = evt_tx2.send(Evt::PlayerEnabled(player.has_device())).await;
 
             let mut cmd_rx = cmd_rx;
-            while let Some(cmd) = cmd_rx.recv().await {
+            let mut tick = tokio::time::interval(std::time::Duration::from_millis(500));
+            loop {
+                tokio::select! {
+                    Some(cmd) = cmd_rx.recv() => {
                 match cmd {
                     Cmd::Search(q) => {
                         covers.clear();
@@ -773,7 +777,15 @@ fn run_gui() -> Result<()> {
                     }
 
                     Cmd::Toggle => {
-                        player.toggle();
+                        if !player.has_loaded() {
+                            // Nothing decoded yet — (re)start the current track
+                            // (e.g. the "last played" loaded at boot).
+                            if let Some(card) = queue.current().cloned() {
+                                start_streaming(card, &mut player, &api, &evt_tx2, &i18n).await;
+                            }
+                        } else {
+                            player.toggle();
+                        }
                         let _ = evt_tx2.send(Evt::Playing(player.is_playing())).await;
                     }
                     Cmd::Prev => {
@@ -926,6 +938,29 @@ fn run_gui() -> Result<()> {
                             cfg.time_format = fmt;
                             if let Err(e) = cfg.save() {
                                 log::warn!("could not save config: {e}");
+                            }
+                        }
+                    }
+                }
+                    }
+                    _ = tick.tick() => {
+                        // Progress reporter: keep the slider + elapsed label in
+                        // sync while playing, and auto-advance on track end.
+                        if player.is_playing() {
+                            if let Some(pos) = player.position_secs() {
+                                let _ = evt_tx2.send(Evt::Position(pos)).await;
+                                let _ = evt_tx2
+                                    .send(Evt::PositionLabel(fmt_duration(pos)))
+                                    .await;
+                            }
+                            if player.ended() {
+                                player.stop();
+                                if let Some(card) = queue.next().cloned() {
+                                    let _ = evt_tx2.send(Evt::TrackChanged(card.clone())).await;
+                                    start_streaming(card, &mut player, &api, &evt_tx2, &i18n).await;
+                                } else {
+                                    let _ = evt_tx2.send(Evt::Playing(false)).await;
+                                }
                             }
                         }
                     }
@@ -1127,6 +1162,7 @@ fn apply_event(ui: &MainWindow, evt: Evt, covers: &Covers) {
         }
         Evt::Playing(b) => ui.set_playing(b),
         Evt::Position(v) => ui.set_position(v),
+        Evt::PositionLabel(s) => ui.set_position_label(SharedString::from(s)),
         Evt::Volume(v) => ui.set_volume(v),
         Evt::VolumeLabel(s) => ui.set_volume_label(SharedString::from(s)),
         Evt::Layout { left, right, bottom } => {

@@ -56,6 +56,7 @@ export component BreezerSlider inherits Rectangle {
     in property <float> maximum: 100.0;
     in property <float> progress: 0.0;
     callback changed(float);
+    out property <bool> hovered: touch.has-hover;
     property <bool> dragging: false;
     property <float> drag-ratio: 0.0;
     property <float> ratio: root.dragging ? root.drag-ratio : root.progress;
