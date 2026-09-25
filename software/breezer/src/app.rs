@@ -486,7 +486,8 @@ fn run_gui() -> Result<()> {
                             .send(Evt::Auth { state: 2, username: s.username })
                             .await;
 
-                        // Cross-device resume: play the last listened track.
+                        // Cross-device resume: load the last listened track into the player
+                        // (NOT started automatically — press Play to listen).
                         match api.last_played().await {
                             Ok(Some(t)) => {
                                 let duration = if t.duration > 0 {
@@ -506,8 +507,7 @@ fn run_gui() -> Result<()> {
                                 covers.ensure(&[cover_url]).await;
                                 let _ = evt_tx2.send(Evt::TrackChanged(card.clone())).await;
                                 queue.set_tracks(vec![card.clone()], 0);
-                                log::info!("resuming last played: {}", card.title);
-                                start_streaming(card, &mut player, &api, &evt_tx2, &i18n).await;
+                                log::info!("loaded last played (paused): {}", card.title);
                             }
                             Ok(None) => {}
                             Err(e) => log::debug!("last played unavailable: {e}"),
