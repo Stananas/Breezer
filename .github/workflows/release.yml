@@ -9,6 +9,8 @@ on:
 
 permissions:
   contents: write
+  attestations: write
+  id-token: write
 
 jobs:
   build:
@@ -71,6 +73,12 @@ jobs:
           echo "--- artifacts ---"
           ls -la dist/
           cat dist/SHA256SUMS.txt
+
+      - name: Attest build provenance (artifacts)
+        uses: actions/attest-build-provenance@v1
+        with:
+          subject-path: dist/*
+          subject-name: breeze
 
       - name: Attach to GitHub Release
         uses: softprops/action-gh-release@v2

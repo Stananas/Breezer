@@ -1,0 +1,10 @@
+[Desktop Entry]
+Name=Breezer
+GenericName=Deezer Client
+Comment=Ultra-lightweight native Deezer client
+Exec=breezer
+Icon=breezer
+Terminal=false
+Type=Application
+Categories=Audio;Music;Player;
+StartupNotify=true

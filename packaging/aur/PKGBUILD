@@ -1,0 +1,27 @@
+# Maintainer: Breezer team <breezer@users.noreply.github.com>
+# Contributor: Stananas
+pkgname=breezer
+pkgver=0.1.0
+pkgrel=1
+pkgdesc="Ultra-lightweight native Deezer client (Rust + Slint)"
+arch=('x86_64' 'aarch64')
+url="https://github.com/Stananas/Breezer"
+license=('AGPL-3.0-or-later')
+depends=('alsa-lib' 'libxkbcommon' 'fontconfig' 'hicolor-icon-theme')
+makedepends=('rust' 'cargo' 'cmake' 'clang' 'pkgconf')
+source=("$pkgname-$pkgver.tar.gz::https://github.com/Stananas/Breezer/archive/refs/tags/v$pkgver.tar.gz")
+sha256sums=('SKIP')
+
+build() {
+  cd "$srcdir/Breezer-$pkgver/software"
+  cargo build --release --locked --bin breezer
+}
+
+package() {
+  cd "$srcdir/Breezer-$pkgver/software"
+  install -Dm755 target/release/breezer "$pkgdir/usr/bin/breezer"
+  install -Dm644 breezer/icons/icon.png "$pkgdir/usr/share/icons/hicolor/512x512/apps/breezer.png"
+  install -Dm644 breezer/icons/icon.svg "$pkgdir/usr/share/icons/hicolor/scalable/apps/breezer.svg"
+  install -Dm644 "$srcdir/packaging/aur/breezer.desktop" "$pkgdir/usr/share/applications/breezer.desktop"
+  install -Dm644 "$srcdir/LICENSE" "$pkgdir/usr/share/licenses/breezer/LICENSE"
+}

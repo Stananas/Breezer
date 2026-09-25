@@ -83,6 +83,12 @@ Au premier lancement : collez votre **cookie ARL** Deezer (voir [docs/ARL.md](do
 Les installateurs pré-compilés (AppImage/deb, dmg, nsis) sont publiés sur la page **[Releases](https://github.com/Stananas/Breezer/releases)**,
 avec mises à jour automatiques.
 
+- 🐧 **Arch Linux** (AUR, build depuis les sources) : `yay -S breezer`
+- 🐧 **Linux portable** : `breezer_…_x86_64.AppImage` ou le binaire brut `breezer-linux-x86_64`
+- 🍎 **macOS** : `Breezer_….dmg` &nbsp;·&nbsp; 🪟 **Windows** : installateur nsis
+
+*Breezer se met à jour lui-même : il télécharge les nouvelles releases et remplace son propre binaire au lancement.*
+
 ## 🧱 Structure du dépôt
 
 ```

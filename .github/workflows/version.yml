@@ -29,7 +29,7 @@ jobs:
       - name: Run release-plz (open/update release PRs)
         uses: MarcoIeni/release-plz-action@v0.5
         with:
-          command: update
+          command: release-pr
           manifest_path: software/Cargo.toml
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

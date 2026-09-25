@@ -84,6 +84,12 @@ First run: paste your Deezer **ARL cookie** (see [docs/ARL.md](docs/ARL.md), ~2 
 Pre-built installers (AppImage/deb, dmg, nsis) are published on the **[Releases](https://github.com/Stananas/Breezer/releases)** page,
 with automatic updates.
 
+- 🐧 **Arch Linux** (AUR, build from source): `yay -S breezer`
+- 🐧 **Linux portable**: `breezer_…_x86_64.AppImage` or the raw `breezer-linux-x86_64` binary
+- 🍎 **macOS**: `Breezer_….dmg` &nbsp;·&nbsp; 🪟 **Windows**: nsis installer
+
+*Breezer updates itself: it downloads new releases and replaces its own binary at launch.*
+
 ## 🧱 Repository layout
 
 ```
