@@ -67,6 +67,6 @@ publisher = "Breezer Contributors"
 description = "Ultra-lightweight native Deezer client"
 homepage = "https://github.com/Stananas/Breezer"
 icons = ["icons/icon.png", "icons/icon.icns", "icons/icon.ico"]
-# cargo-packager 0.11: one global list; the applicable formats are picked per
-# OS (appimage/deb on Linux, dmg on macOS, nsis on Windows).
-formats = ["appimage", "deb", "dmg", "nsis"]
+# No `formats` list: cargo-packager 0.11 builds a GLOBAL list on every host
+# (nsis on Linux would look for a .exe). Omitting it uses per-host defaults:
+# AppImage + deb on Linux, dmg (macOS), nsis (Windows).

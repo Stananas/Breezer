@@ -45,6 +45,8 @@ jobs:
 
       - name: Package
         working-directory: software
+        env:
+          NO_STRIP: "1"
         run: |
           cargo build --release
           cargo packager --release
