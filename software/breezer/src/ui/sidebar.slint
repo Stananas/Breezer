@@ -129,11 +129,13 @@ export component Sidebar inherits Rectangle {
     in property <int> auth-state;
     in property <string> current-view;
     in property <string> version-status;
+    in property <string> update-ready;
     in property <[PlaylistInfo]> playlists;
     callback view-requested(string);
     callback connect-requested(string);
     callback open-browser-requested();
     callback playlist-selected(string);
+    callback install-update-requested();
 
     property <string> arl-input: "";
 
@@ -241,6 +243,28 @@ export component Sidebar inherits Rectangle {
                 }
             }
         }
+
+        // Self-update: a new version was downloaded — install & restart.
+        if root.update-ready != "":
+            Rectangle {
+                height: 34px;
+                border-radius: root.palette.radius;
+                background: root.palette.primary;
+                upd-ta := TouchArea {
+                    clicked => root.install-update-requested();
+                    mouse-cursor: pointer;
+                }
+                Text {
+                    text: @tr("Install & restart") + " v" + root.update-ready;
+                    width: 100%;
+                    height: 100%;
+                    color: root.palette.on-primary;
+                    font-size: 12px;
+                    font-weight: 700;
+                    horizontal-alignment: center;
+                    vertical-alignment: center;
+                }
+            }
 
         Text {
             text: root.version-status;

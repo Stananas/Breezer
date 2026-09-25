@@ -41,6 +41,7 @@ enum Cmd {
     Shuffle,
     Repeat,
     PlayRecent(i32),
+    InstallUpdate,
     Dock(String, String),
     ToggleRight,
     Theme(String),
@@ -153,6 +154,7 @@ enum Evt {
     Shuffle(bool),
     Repeat(i32),
     Recents(Vec<TrackCard>),
+    UpdateReady(String),
     OnboardingDone,
 }
 
@@ -162,6 +164,14 @@ enum Evt {
 
 pub fn run() -> Result<()> {
     init_logger();
+
+    // Auto-update: apply a previously downloaded release before the GUI starts
+    // (it takes effect at next launch when the binary gets replaced in place).
+    match crate::updater::apply_latest_ready() {
+        Ok(true) => log::info!("pending update applied — will run the new version on next start"),
+        Ok(false) => {}
+        Err(e) => log::warn!("could not apply pending update: {e}"),
+    }
 
     let mut args = std::env::args().skip(1);
     while let Some(a) = args.next() {
@@ -373,6 +383,7 @@ fn run_gui() -> Result<()> {
     window.set_queue_index(-1);
     window.set_shuffle_on(false);
     window.set_repeat_mode(0);
+    window.set_update_ready(SharedString::from(""));
     window.set_onboard_status(SharedString::from(""));
     let onboarding_seen = cfg.onboarding_done;
     window.set_onboarding_visible(!onboarding_seen && !already_connected);
@@ -488,6 +499,7 @@ fn run_gui() -> Result<()> {
     };
     window.on_open_browser_requested(unary(cmd_tx.clone(), Cmd::OpenBrowser));
     window.on_toggle_requested(unary(cmd_tx.clone(), Cmd::Toggle));
+    window.on_install_update_requested(unary(cmd_tx.clone(), Cmd::InstallUpdate));
     window.on_prev_requested(unary(cmd_tx.clone(), Cmd::Prev));
     window.on_next_requested(unary(cmd_tx.clone(), Cmd::Next));
     window.on_shuffle_requested(unary(cmd_tx.clone(), Cmd::Shuffle));
@@ -1096,6 +1108,26 @@ fn run_gui() -> Result<()> {
                         let _ = slint::quit_event_loop();
                         break;
                     }
+                    Cmd::InstallUpdate => {
+                        match crate::updater::apply_latest_ready() {
+                            Ok(true) => {
+                                let msg = i18n.t("update.ready");
+                                let _ = evt_tx2.send(Evt::Status(msg)).await;
+                                let exe = std::env::current_exe().unwrap_or_default();
+                                let _ = crate::updater::restart(&exe);
+                                let _ = slint::quit_event_loop();
+                                break;
+                            }
+                            Ok(false) => {
+                                let _ = evt_tx2.send(Evt::Status(i18n.t("update.none"))).await;
+                            }
+                            Err(e) => {
+                                let msg =
+                                    i18n.t_args("update.install.failed", &[("error", &e.to_string())]);
+                                let _ = evt_tx2.send(Evt::Status(msg)).await;
+                            }
+                        }
+                    }
                     Cmd::TimeFormat(fmt) => {
                         if fmt == "24h" || fmt == "12h" {
                             cfg.time_format = fmt;
@@ -1138,23 +1170,44 @@ fn run_gui() -> Result<()> {
         });
     }
 
-    // -- update check (fire and forget) -------------------------------------
+    // -- auto-update (fire and forget): check + download in the background. -----
+    // The new binary is downloaded automatically; the UI then offers to
+    // "Install & restart" (no GitHub round-trip for the user).
     {
         let weak = window.as_weak();
+        let evt3 = evt_tx.clone();
         rt.spawn(async move {
             let client = reqwest::Client::new();
             match crate::updater::check(&client).await {
                 Ok(Some(info)) => {
-                    let msg = update_i18n.t_args(
-                        "update.available",
-                        &[("version", &format!("v{}", info.version))],
-                    );
-                    let w = weak.clone();
-                    let _ = slint::invoke_from_event_loop(move || {
-                        if let Some(ui) = w.upgrade() {
-                            ui.set_version_status(SharedString::from(msg));
+                    let v = format!("v{}", info.version);
+                    match crate::updater::prepare_latest_update(&client, &info).await {
+                        Ok(Some(version)) => {
+                            log::info!("update {} ready to install", version);
+                            let _ = evt3.send(Evt::UpdateReady(version.to_string())).await;
                         }
-                    });
+                        Ok(None) => {
+                            // No compatible build for this platform — point to GitHub.
+                            let msg = update_i18n.t_args(
+                                "update.available",
+                                &[("version", &v)],
+                            );
+                            let w = weak.clone();
+                            let _ = slint::invoke_from_event_loop(move || {
+                                if let Some(ui) = w.upgrade() {
+                                    ui.set_version_status(SharedString::from(msg));
+                                }
+                            });
+                        }
+                        Err(e) => {
+                            log::warn!("update download failed: {e}");
+                            let msg = update_i18n.t_args(
+                                "update.download.failed",
+                                &[("error", &e.to_string())],
+                            );
+                            let _ = evt3.send(Evt::Status(msg)).await;
+                        }
+                    }
                 }
                 Ok(None) => {
                     let msg = update_i18n.t("update.none");
@@ -1345,6 +1398,7 @@ fn apply_event(ui: &MainWindow, evt: Evt, covers: &Covers) {
             let items: Vec<TrackInfo> = cards.iter().map(|c| c.to_ui(covers)).collect();
             ui.set_recent_results(ModelRc::from(std::rc::Rc::new(VecModel::from(items))));
         }
+        Evt::UpdateReady(version) => ui.set_update_ready(SharedString::from(version)),
         Evt::Playlists(cards) => {
             let items: Vec<crate::PlaylistInfo> = cards
                 .iter()

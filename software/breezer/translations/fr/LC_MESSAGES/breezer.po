@@ -210,3 +210,6 @@ msgstr "Vos playlists"
 
 msgid "See what's trending"
 msgstr "Découvrir les tendances"
+
+msgid "Install & restart"
+msgstr "Installer & redémarrer"

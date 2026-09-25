@@ -31,7 +31,7 @@ A small, fast, native music player for **Deezer** — search, stream, browse you
 - 🎨 **Theme system** — dark / light / AMOLED built-in, custom color editor, community themes.
 - 🧩 **Dockable panels** — drag & drop layout, saved workspaces.
 - 🌍 **i18n** — French & English (UI and status messages).
-- 🔄 **Auto-update** from GitHub Releases (semver).
+- 🔄 **Self-updating** — checks, downloads and replaces itself automatically; one click to restart.
 - 🔓 **AGPL-3.0** — free software.
 
 ## 📸 Screenshots

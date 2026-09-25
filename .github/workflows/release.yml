@@ -58,8 +58,11 @@ jobs:
             -name "*.AppImage" -o -name "*.deb" -o -name "*.rpm" \
             -o -name "*.dmg" -o -name "*.msi" -o -name "*.exe" \) \
             -exec cp -n {} dist/ \; 2>/dev/null || true
-          # Plain executable fallback (Linux/macOS).
-          cp -n software/target/release/breezer dist/ 2>/dev/null || true
+          # Plain executable fallback (Linux/macOS) + Windows .exe, named
+          # per-platform so the built-in auto-update can pick the right one
+          # (updater::platform_key matches these names exactly).
+          cp -n software/target/release/breezer dist/breezer-${{ matrix.artifact }} 2>/dev/null || true
+          cp -n software/target/release/breezer.exe dist/breezer-${{ matrix.artifact }}.exe 2>/dev/null || true
           find dist -type f -exec sha256sum {} + > dist/SHA256SUMS.txt
           echo "--- artifacts ---"
           ls -la dist/

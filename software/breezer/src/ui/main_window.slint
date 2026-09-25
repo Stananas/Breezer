@@ -82,6 +82,7 @@ component DockShell inherits Rectangle {
     in property <string> theme-id;
     in property <string> ui-language;
     in property <string> version-status;
+    in property <string> update-ready;
     in property <int> queue-index;
 
     in property <string> left-panel;
@@ -98,6 +99,7 @@ component DockShell inherits Rectangle {
     callback play-index-requested(int);
     callback play-recent-requested(int);
     callback explore-requested();
+    callback install-update-requested();
     callback toggle-requested();
     callback prev-requested();
     callback next-requested();
@@ -155,10 +157,12 @@ component DockShell inherits Rectangle {
                         auth-state: root.auth-state;
                         current-view: root.current-view;
                         version-status: root.version-status;
+                        update-ready: root.update-ready;
                         playlists: root.playlist-results;
                         view-requested(v) => root.view-requested(v);
                         connect-requested(arl) => root.connect-requested(arl);
                         open-browser-requested => root.open-browser-requested();
+                        install-update-requested => root.install-update-requested();
                         playlist-selected(id) => root.playlist-selected(id);
                     }
                     QueuePanel {
@@ -227,10 +231,12 @@ component DockShell inherits Rectangle {
                         auth-state: root.auth-state;
                         current-view: root.current-view;
                         version-status: root.version-status;
+                        update-ready: root.update-ready;
                         playlists: root.playlist-results;
                         view-requested(v) => root.view-requested(v);
                         connect-requested(arl) => root.connect-requested(arl);
                         open-browser-requested => root.open-browser-requested();
+                        install-update-requested => root.install-update-requested();
                         playlist-selected(id) => root.playlist-selected(id);
                     }
                     QueuePanel {
@@ -397,6 +403,7 @@ export component MainWindow inherits Window {
     in property <string> theme-id;
     in property <string> ui-language;
     in property <string> version-status;
+    in property <string> update-ready;
 
     // onboarding (first launch)
     in property <bool> onboarding-visible;
@@ -413,6 +420,7 @@ export component MainWindow inherits Window {
     callback play-index-requested(int);
     callback play-recent-requested(int);
     callback explore-requested();
+    callback install-update-requested();
     callback toggle-requested();
     callback prev-requested();
     callback next-requested();
@@ -465,6 +473,7 @@ export component MainWindow inherits Window {
         theme-id <=> root.theme-id;
         ui-language <=> root.ui-language;
         version-status <=> root.version-status;
+        update-ready <=> root.update-ready;
 
         search-requested(q) => root.search-requested(q);
         connect-requested(arl) => root.connect-requested(arl);
@@ -477,6 +486,7 @@ export component MainWindow inherits Window {
         play-index-requested(i) => root.play-index-requested(i);
         play-recent-requested(id) => root.play-recent-requested(id);
         toggle-requested => root.toggle-requested();
+        install-update-requested => root.install-update-requested();
         prev-requested => root.prev-requested();
         next-requested => root.next-requested();
         shuffle-requested => root.shuffle-requested();
