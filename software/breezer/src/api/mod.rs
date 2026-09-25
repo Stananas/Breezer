@@ -23,6 +23,8 @@ pub struct AuthSession {
     pub api_token: String,
     pub username: String,
     pub user_id: i64,
+    /// Gateway session id (SESSION_ID) for authenticated calls.
+    pub session_id: String,
 }
 
 #[derive(Debug, Clone)]
@@ -30,15 +32,22 @@ pub struct ApiClient {
     pub http: reqwest::Client,
     arl: Option<String>,
     api_token: Option<String>,
+    /// Gateway session id (SESSION_ID), required for authenticated gw calls.
+    session_id: Option<String>,
 }
+
+/// Real browser User-Agent: Deezer's gateway refuses or reduces responses to
+/// non-browser clients (proven flow of the tui-dzr client).
+pub const BROWSER_UA: &str =
+    "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/133.0.0.0 Safari/537.36";
 
 impl ApiClient {
     pub fn new() -> Result<Self> {
         let http = reqwest::ClientBuilder::new()
-            .user_agent("Breezer/0.1 (lightweight native Deezer client)")
+            .user_agent(BROWSER_UA)
             .cookie_store(true)
             .build()?;
-        Ok(Self { http, arl: None, api_token: None })
+        Ok(Self { http, arl: None, api_token: None, session_id: None })
     }
 
     /// Build from the stored configuration.
@@ -56,23 +65,27 @@ impl ApiClient {
     // ---------------------------------------------------------------------
 
     /// Validate an ARL cookie against Deezer and derive the API token.
+    ///
+    /// Flow matched against the tui-dzr client (known-good against the current
+    /// gateway): POST `{}` with `Content-Type: application/json`, a real
+    /// browser User-Agent, the `arl` cookie, and the token read from
+    /// `results.checkForm`.
     pub async fn auth_with_arl(&self, arl: &str) -> Result<AuthSession> {
         let arl = arl.trim().to_string();
         if arl.len() < 32 {
             return Err(Error::Auth("ARL looks too short to be valid".into()));
         }
-        // The gateway reads the `arl` cookie; `deezer.getUserData` bounces it
-        // into `TOKEN` + `USER`.
         let resp = self
             .http
             .post(GW_LIGHT_URL)
-            .header("Cookie", format!("arl={arl};"))
-            .form(&[
+            .query(&[
                 ("method", "deezer.getUserData"),
-                ("input", "3"),
                 ("api_version", "1.0"),
                 ("api_token", ""),
             ])
+            .header("Cookie", format!("arl={arl}"))
+            .header("Content-Type", "application/json")
+            .body("{}")
             .send()
             .await?;
         log::debug!("gw-light responded HTTP {}", resp.status());
@@ -83,24 +96,34 @@ impl ApiClient {
         if !status.is_success() {
             return Err(Error::Auth(format!("gateway returned HTTP {status}")));
         }
-        if let Some(err) = body.get("error").and_then(|e| e.as_object()) {
-            let msg = err
-                .get("message")
-                .and_then(|m| m.as_str())
-                .unwrap_or("unknown gateway error")
-                .to_string();
-            return Err(Error::Auth(msg));
+        if let Some(err) = body.get("error").and_then(|e| e.as_array()) {
+            if !err.is_empty() {
+                let msg = err
+                    .first()
+                    .and_then(|m| m.get("message"))
+                    .and_then(|m| m.as_str())
+                    .unwrap_or("unknown gateway error")
+                    .to_string();
+                return Err(Error::Auth(msg));
+            }
         }
 
         let inner = models::DzUserData::from_value(&body)?;
-        if inner.token.is_empty() {
-            return Err(Error::Auth("no API token returned — ARL invalid or expired".into()));
+        // A valid account always has a user id (and a session). A fake/expired
+        // ARL still receives a gateway response, but with USER_ID = 0.
+        if inner.user_id == 0 && inner.username.is_empty() {
+            return Err(Error::Auth("ARL invalid or expired".into()));
         }
-        log::debug!("gw-light session OK (user_id={})", inner.user_id);
+        log::debug!(
+            "gw-light session OK (user_id={}, session present={})",
+            inner.user_id,
+            !inner.session_id.is_empty()
+        );
         Ok(AuthSession {
             api_token: inner.token.clone(),
             username: inner.username.clone(),
             user_id: inner.user_id,
+            session_id: inner.session_id.clone(),
         })
     }
 
@@ -108,6 +131,7 @@ impl ApiClient {
     pub fn set_session(&mut self, arl: String, session: &AuthSession) {
         self.arl = Some(arl);
         self.api_token = Some(session.api_token.clone());
+        self.session_id = Some(session.session_id.clone());
     }
 
     // ---------------------------------------------------------------------
