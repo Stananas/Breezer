@@ -1,0 +1,24 @@
+name: "✨ Feature request"
+description: Suggest an idea for Breezer.
+labels: ["enhancement"]
+body:
+  - type: textarea
+    id: idea
+    attributes:
+      label: Idea
+      description: What would you like Breezer to do, and why?
+    validations:
+      required: true
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area (optional)
+      options:
+        - UI / Player
+        - Streaming / API
+        - Themes
+        - i18n / translation
+        - Plugins
+        - Packaging / Release / CI
+    validations:
+      required: false

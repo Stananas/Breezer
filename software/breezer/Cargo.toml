@@ -8,6 +8,8 @@ repository.workspace = true
 authors.workspace = true
 homepage.workspace = true
 description = "Ultra-lightweight native Deezer client (Rust + Slint)"
+keywords = ["deezer", "music", "player", "streaming", "slint"]
+categories = ["multimedia::audio", "gui"]
 default-run = "breezer"
 
 [dependencies]

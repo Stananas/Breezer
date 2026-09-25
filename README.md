@@ -1,86 +1,90 @@
+<p align="right">
+<a href="README.fr.md">🇫🇷 <b>Français</b></a> &nbsp;·&nbsp; 🇬🇧 <b>English</b>
+</p>
+
 <div align="center">
 
 # 🎧 Breezer
 
-**Ultra-lightweight, native, open-source Deezer client.**
+**The ultra-lightweight native Deezer client.** Rust + Slint. No Electron. No bloat.
 
-Linux · macOS · Windows — built with **Rust**, **Slint**, lovingly minimal.
+Linux · macOS · Windows
 
-![License](https://img.shields.io/badge/license-AGPL--3.0-blue) ![Rust](https://img.shields.io/badge/Rust-1.85+-orange) ![Platforms](https://img.shields.io/badge/platforms-Linux%20%7C%20macOS%20%7C%20Windows-lightgrey)
+![License](https://img.shields.io/badge/license-AGPL--3.0%20or%20later-blue)
+![Rust](https://img.shields.io/badge/Rust-1.85+-orange)
+![Platform](https://img.shields.io/badge/platform-Linux%20%7C%20macOS%20%7C%20Windows-lightgrey)
+[![CI](https://img.shields.io/github/actions/workflow/status/Breezer-App/breezer/ci.yml?branch=main&label=CI)](https://github.com/Breezer-App/breezer/actions/workflows/ci.yml)
 
 </div>
 
 ---
 
-## ✨ Features
+## What is Breezer?
 
-- 🧊 **Lightweight** — a small binary, a small RAM footprint. No Electron, no bloat.
-- 🎨 **Deeply customizable** — manual color overrides, full **theme system** (palette + layout + typography), community themes.
-- 🧩 **Modular layout** — dockable panels, drag & drop, saved workspaces (*Listening*, *Browsing*, *Compact*) + your own profiles.
-- 🔌 **Plugin-ready** — stable public plugin API from day one (logic + shell extension points).
-- 🔎 Deezer search, playlists, favorites, metadata (public API + authenticated API).
-- 🎵 Real streaming for free-tier tracks (ARL-based, AES decryption isolated & auditable).
-- 🌍 **i18n**: English & French (more languages planned).
-- 🔄 **Auto-update** from GitHub Releases, semantic-versioned.
-- 🔓 **AGPL-3.0** — free software, always.
+A small, fast, native music player for **Deezer** — search, stream, browse your playlists and listening history with a clean, customizable UI. Built around the same auth & streaming flow as [tui-dzr](https://github.com/dunderdoo/tui-dzr) (ARL-based, Blowfish decryption).
+
+## ✨ Key features
+
+- 🧊 **Lightweight** — a few MB binary, small RAM footprint.
+- 🎵 **Real streaming** of free-tier tracks (ARL auth, decrypt isolated & auditable).
+- 🏠 Deezer-style pages: **Home** (continue listening, recently played shelves), **Explore** (trending), **Favorites**, **Playlists**.
+- 🎨 **Theme system** — dark / light / AMOLED built-in, custom color editor, community themes.
+- 🧩 **Dockable panels** — drag & drop layout, saved workspaces.
+- 🌍 **i18n** — French & English (UI and status messages).
+- 🔄 **Auto-update** from GitHub Releases (semver).
+- 🔓 **AGPL-3.0** — free software.
 
 ## 📸 Screenshots
 
-> 🖼️ **Screenshots needed — community request.**
-> We're looking for volunteers to run Breezer on their platform (Linux, macOS, Windows) and share screenshots (default theme + at least one community theme). Each screenshot gets credited in the README and the website.
-> See [docs/SCREENSHOTS.md](docs/SCREENSHOTS.md) for the exact list and how to contribute (FR/EN welcome).
+| Dark (default) | Light | AMOLED |
+|---|---|---|
+| [![Home – dark](assets/screenshots/home-dark.png)](assets/screenshots/home-dark.png) | [![Home – light](assets/screenshots/home-light.png)](assets/screenshots/home-light.png) | [![Home – amoled](assets/screenshots/home-amoled.png)](assets/screenshots/home-amoled.png) |
 
-*Screenshots will appear here once contributed.*
+[![Explore – trending](assets/screenshots/explorer-dark.png)](assets/screenshots/explorer-dark.png)
 
-## 🚀 Quick start (from source)
+## 🚀 Quick start
 
 ```bash
-# Requirements: Rust stable (1.85+), Linux: libasound2-dev, libxkbcommon-dev, cmake + clang
+# Requirements: Rust 1.85+, Linux: libasound2-dev libxkbcommon-dev cmake clang
 cd software
 cargo run --release
 ```
 
-First launch: open the app, paste your Deezer **ARL** in the sidebar
-(see [docs/ARL.md](docs/ARL.md) — 2 minutes, browser developer tools), then hit *Connect*.
+First run: paste your Deezer **ARL cookie** (see [docs/ARL.md](docs/ARL.md), ~2 min) and connect.
 
 ## 📦 Downloads
 
-Pre-built binaries (AppImage/deb, dmg, msi/nsis + portable archives) are published on the
-[GitHub Releases](https://github.com/Breezer-App/breezer/releases) page, with auto-update support.
+Pre-built installers (AppImage/deb, dmg, nsis) are published on the **[Releases](https://github.com/Breezer-App/breezer/releases)** page,
+with automatic updates.
 
 ## 🧱 Repository layout
 
 ```
-├── software/   # The Rust client (Cargo workspace: breezer + breezer-plugin-api)
-├── site/       # The website: Bun monolith (Next.js + Elysia.js)
-├── themes/     # Official + community theme manifests (marketplace)
-├── docs/       # ARL, themes, plugins, screenshots…
-└── .github/workflows/  # CI, versioning (release-plz), releases (cargo-packager)
+software/   # Rust client (Cargo workspace: breezer + plugin-api)
+site/       # Website (Bun: Next.js + Elysia.js)
+themes/     # Official & community theme manifests
+docs/       # ARL, themes, plugins, screenshots
+assets/     # README screenshots & branding
 ```
 
 ## 🛠 Development
 
 ```bash
-cargo check -p breezer            # quick check
-cargo run -- --selftest           # audio output self-test (no GUI)
-cargo run -p breezer              # run the app
+cargo check -p breezer        # quick check
+cargo run -p breezer          # run the app (alias: cargo run)
+cargo run -- --selftest       # audio self-test, no GUI
 cargo test -p breezer
 ```
 
-See [docs/THEMES.md](docs/THEMES.md) (create & submit a theme),
-[docs/PLUGINS.md](docs/PLUGINS.md) (plugin API), [docs/SCREENSHOTS.md](docs/SCREENSHOTS.md).
-
-## 🌍 Website
-
-`site/` is a monolithic Bun server: **Next.js** (App Router, FR/EN via `next-intl`) + **Elysia.js** (`/api/*` — themes marketplace proxy, release metadata, download stats). See `site/README.md`.
+Docs: [Themes](docs/THEMES.md) · [Plugins](docs/PLUGINS.md) · [Screenshots](docs/SCREENSHOTS.md) · [Contributing](CONTRIBUTING.md)
 
 ## ⚖️ License & legal
 
-**AGPL-3.0-or-later**. Breezer is an independent, third-party client. It is **not** affiliated with
-Deezer SAS. Streaming depends on your Deezer account rights; the app never bypasses DRM
-(Widevine-protected content is not supported, by design). Use ethically, in accordance with
-Deezer's Terms of Service and your local law.
+**AGPL-3.0-or-later.** Breezer is an independent third-party client, **not affiliated** with Deezer SAS.
+Streaming depends on your Deezer account rights; DRM-protected content (Widevine) is never bypassed.
+Use it in accordance with Deezer's Terms of Service and your local law.
 
 ---
 
-**Made with ❤️ and Rust.** Contributions, themes, translations and translations of this README are welcome!
+**Made with ❤️ and Rust.** Contributions, themes and translations are welcome — a
+[French translation of this README](README.fr.md) is available.

@@ -1,0 +1,31 @@
+name: "🐞 Bug report"
+description: Something is broken.
+labels: ["bug"]
+body:
+  - type: input
+    id: os
+    attributes:
+      label: Platform
+      description: OS + version (Linux distro, macOS, Windows)
+      placeholder: "Linux (Arch), Wayland"
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Breezer version
+      description: See the version string in the sidebar / About
+      placeholder: "0.1.x"
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened?
+      description: Steps to reproduce + what you expected.
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs (optional)
+      description: Run `RUST_LOG=breezer=debug breezer` and paste the relevant lines.
+      render: text

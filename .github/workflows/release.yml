@@ -51,11 +51,18 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          shopt -s nullglob
           mkdir -p dist
-          cp software/target/release/breezer*.{deb,appimage,rpm,dmg,msi,exe} dist/ 2>/dev/null || true
-          cp software/target/release/breezer dist/ 2>/dev/null || true
+          # Installers can land in either target/ or packager/ depending on the
+          # cargo-packager version — pick up every bundle we know how to build.
+          find software -maxdepth 4 -type f \( \
+            -name "*.AppImage" -o -name "*.deb" -o -name "*.rpm" \
+            -o -name "*.dmg" -o -name "*.msi" -o -name "*.exe" \) \
+            -exec cp -n {} dist/ \; 2>/dev/null || true
+          # Plain executable fallback (Linux/macOS).
+          cp -n software/target/release/breezer dist/ 2>/dev/null || true
           find dist -type f -exec sha256sum {} + > dist/SHA256SUMS.txt
+          echo "--- artifacts ---"
+          ls -la dist/
           cat dist/SHA256SUMS.txt
 
       - name: Attach to GitHub Release

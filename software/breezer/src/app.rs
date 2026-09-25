@@ -334,6 +334,9 @@ fn run_stream_test(track_id: u64) -> Result<()> {
 fn run_gui() -> Result<()> {
     let cfg = Config::load();
     let i18n = cfg.i18n();
+    // Snapshot for the fire-and-forget update check (i18n is moved into the
+    // services task below).
+    let update_i18n = i18n.clone();
 
     let window = MainWindow::new()?;
 
@@ -1140,10 +1143,12 @@ fn run_gui() -> Result<()> {
         let weak = window.as_weak();
         rt.spawn(async move {
             let client = reqwest::Client::new();
-            let base = format!("Breezer v{}", env!("CARGO_PKG_VERSION"));
             match crate::updater::check(&client).await {
                 Ok(Some(info)) => {
-                    let msg = format!("{base} · ⬆ v{}", info.version);
+                    let msg = update_i18n.t_args(
+                        "update.available",
+                        &[("version", &format!("v{}", info.version))],
+                    );
                     let w = weak.clone();
                     let _ = slint::invoke_from_event_loop(move || {
                         if let Some(ui) = w.upgrade() {
@@ -1152,7 +1157,7 @@ fn run_gui() -> Result<()> {
                     });
                 }
                 Ok(None) => {
-                    let msg = format!("{base} · ✓ up to date");
+                    let msg = update_i18n.t("update.none");
                     let w = weak.clone();
                     let _ = slint::invoke_from_event_loop(move || {
                         if let Some(ui) = w.upgrade() {

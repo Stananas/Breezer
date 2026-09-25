@@ -1,19 +1,21 @@
-# Screenshots — community call
+# Screenshots
 
-Breezer's README and website need screenshots. **This is an open call to the community.**
+Official, offscreen-rendered screenshots live in **`assets/screenshots/`**
+(powered by `slint-viewer --screenshot`, no display needed) and are embedded
+in the READMEs: `home-dark/light/amoled.png`, `explorer-dark.png`, `player-dark.png`.
 
-## 🖼️ / 🇫🇷🌍 Appel à captures d'écran
+Real-world captures on actual hardware are still very welcome — **open call to the community.**
 
-> **EN** — We need screenshots of Breezer running on real devices. Instructions: pick a platform
-> (Linux / macOS / Windows), run Breezer (or grab a screenshot of the current dev build), capture:
-> 1. the **main window** with the default theme (sidebar + search results + player bar),
+> **EN** — We'd love real-device screenshots of Breezer. Pick a platform (Linux / macOS / Windows),
+> capture:
+> 1. the **main window** with the default theme,
 > 2. the **same window with at least one community theme**,
-> 3. (bonus) the **mini/docked layout** after moving a panel.
+> 3. (bonus) the **docked/mini layout** after moving a panel.
 >
 > Screenshots must be 1280x720 or larger, PNG/JPG, no personal data visible.
-> Submit by opening a PR that adds them under `docs/screenshots/<platform>/` and editing
-> `README.md` (or `README.fr.md`) to include them, or open an issue with the files attached.
-> You'll be credited in the README + website (name/handle of your choice).
+> Submit via a PR adding them under `docs/screenshots/<platform>/` and updating
+> `README.md` (or `README.fr.md`), or open an issue with the files attached.
+> You'll be credited in the README (name/handle of your choice).
 
 > **FR** — Nous avons besoin de captures d'écran de Breezer sur de vrais appareils.
 > Instructions : choisissez une plateforme (Linux / macOS / Windows), lancez Breezer (ou la build de
@@ -38,6 +40,3 @@ Breezer's README and website need screenshots. **This is an open call to the com
 - [ ] Windows — thème communautaire
 - [ ] (bonus) Mini-player / fenêtre réduite
 - [ ] (bonus) Notifications de mise à jour
-
-> Dev tip: `cargo run -- --screenshot out.png` will be available soon to render the app
-> offscreen for automated reference captures (roadmap, requires the software renderer build).

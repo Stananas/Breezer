@@ -1,0 +1,31 @@
+name: Release PR (release-plz)
+
+# Whenever the "release" PR opened by version.yml is MERGED, tag the new
+# version (vX.Y.Z, annotated) and publish the GitHub Release.
+# The v* tag then triggers release.yml, which builds the installers.
+
+on:
+  pull_request:
+    types: [closed]
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  release-plz:
+    if: github.event.pull_request.merged == true
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: software
+      - name: Run release-plz (tag + release)
+        uses: MarcoIeni/release-plz-action@v0.5
+        with:
+          command: release-pr
+          manifest_path: software/Cargo.toml

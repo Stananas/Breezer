@@ -1,8 +1,11 @@
 name: Versioning (release-plz)
 
-# Automates semantic versioning + changelog from Conventional Commits:
-#  - push to main → opens/updates a "release" PR with version bumps + changelog
-#  - merging that PR (and pushing a v* tag) triggers the Release workflow.
+# Semantic versioning & changelog from Conventional Commits.
+# On every push to main (software changes) this workflow opens or updates a
+# "release" PR that bumps the version + appends the changelog.
+# Merging that PR then triggers release-pr.yml, which tags vX.Y.Z and creates
+# the GitHub Release (building the installers happens in release.yml).
+
 on:
   push:
     branches: [main]
@@ -23,7 +26,8 @@ jobs:
       - uses: Swatinem/rust-cache@v2
         with:
           workspaces: software
-      - name: Run release-plz
+      - name: Run release-plz (open/update release PRs)
         uses: MarcoIeni/release-plz-action@v0.5
         with:
+          command: update
           manifest_path: software/Cargo.toml
