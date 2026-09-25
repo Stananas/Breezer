@@ -452,8 +452,10 @@ export component MainWindow inherits Window {
         reset-layout-requested => root.reset-layout-requested();
     }
 
-    // --- First-launch onboarding overlay (on top of everything) ------------
+    // --- First-launch onboarding overlay (two steps: preferences, login) ---
     property <string> onboard-arl: "";
+    property <bool> ob-step-connect: false;
+    property <bool> ob-arl-guide: false;
     if root.onboarding-visible: Rectangle {
         x: 0px;
         y: 0px;
@@ -487,7 +489,14 @@ export component MainWindow inherits Window {
                             font-size: 14px;
                         }
                         Rectangle { height: 1px; background: root.palette.surface2; }
+                        Text {
+                            text: @tr("Step 1 — set up Breezer");
+                            color: root.palette.text-secondary;
+                            font-size: 12px;
+                            font-weight: 600;
+                        }
 
+                        if !root.ob-step-connect: VerticalLayout { spacing: 12px;
                         Text { text: @tr("Language"); font-weight: 700; color: root.palette.text; font-size: 14px; }
                         HorizontalLayout { spacing: 8px;
                             ObPill { palette: root.palette; label: "EN"; active: root.ui-language == "en"; clicked => root.language-changed("en"); }
@@ -508,6 +517,16 @@ export component MainWindow inherits Window {
                         }
 
                         Rectangle { height: 1px; background: root.palette.surface2; }
+                        ObBtn { palette: root.palette; label: @tr("Continue"); primary: true; clicked => { root.ob-step-connect = true; } }
+                        } // END step 1
+
+                        if root.ob-step-connect: VerticalLayout { spacing: 12px;
+                        Text {
+                            text: @tr("Step 2 — connect your Deezer account");
+                            color: root.palette.text-secondary;
+                            font-size: 12px;
+                            font-weight: 600;
+                        }
                         Text {
                             text: @tr("Connect your Deezer account (required)");
                             font-weight: 700;
@@ -520,12 +539,25 @@ export component MainWindow inherits Window {
                             font-size: 12px;
                             wrap: word-wrap;
                         }
-                        onboard-field := TextInput {
-                            height: 34px;
-                            text <=> root.onboard-arl;
-                            edited => { root.onboard-arl = onboard-field.text; }
+                        Text {
+                            text: @tr("Paste your ARL cookie here:");
                             color: root.palette.text;
-                            accepted => root.connect-requested(root.onboard-arl);
+                            font-size: 13px;
+                            font-weight: 600;
+                        }
+                        Rectangle {
+                            height: 40px;
+                            border-width: 2px;
+                            border-color: root.onboard-arl != "" ? root.palette.primary : root.palette.surface2;
+                            border-radius: root.palette.radius;
+                            onboard-field := TextInput {
+                                height: 40px;
+                                font-family: "monospace";
+                                text <=> root.onboard-arl;
+                                edited => { root.onboard-arl = onboard-field.text; }
+                                color: root.palette.text;
+                                accepted => root.connect-requested(root.onboard-arl);
+                            }
                         }
                         HorizontalLayout { spacing: 8px;
                             ObBtn { palette: root.palette; label: @tr("Open Deezer"); clicked => root.open-browser-requested(); }
@@ -533,6 +565,16 @@ export component MainWindow inherits Window {
                                 palette: root.palette; label: @tr("Connect"); primary: true;
                                 clicked => root.connect-requested(root.onboard-arl);
                             }
+                        }
+                        ObBtn {
+                            palette: root.palette; label: @tr("Where do I find my ARL?");
+                            clicked => { root.ob-arl-guide = !root.ob-arl-guide; }
+                        }
+                        if root.ob-arl-guide: VerticalLayout { spacing: 5px;
+                            Text { text: @tr("1. Go to deezer.com and log in."); color: root.palette.text-secondary; font-size: 12px; }
+                            Text { text: @tr("2. Press F12 → Application → Cookies → www.deezer.com."); color: root.palette.text-secondary; font-size: 12px; }
+                            Text { text: @tr("3. Copy the value of the cookie “arl”."); color: root.palette.text-secondary; font-size: 12px; }
+                            Text { text: @tr("4. Paste it above, then click Connect."); color: root.palette.text-secondary; font-size: 12px; }
                         }
                         Text {
                             text: root.onboard-status;
@@ -546,6 +588,7 @@ export component MainWindow inherits Window {
                             ObBtn { palette: root.palette; label: @tr("Let's go"); primary: true; clicked => root.onboarding-finish-requested(); }
                             ObBtn { palette: root.palette; label: @tr("Quit Breezer"); clicked => root.onboarding-quit-requested(); }
                         }
+                        } // END step 2
                     }
                 }
             }

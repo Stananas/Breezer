@@ -85,3 +85,31 @@ msgstr "C'est parti"
 
 msgid "Quit Breezer"
 msgstr "Quitter Breezer"
+
+# --- Onboarding: two-step wizard ---
+msgid "Step 1 — set up Breezer"
+msgstr "Étape 1 — configuration"
+
+msgid "Step 2 — connect your Deezer account"
+msgstr "Étape 2 — connexion à votre compte Deezer"
+
+msgid "Continue"
+msgstr "Continuer"
+
+msgid "Paste your ARL cookie here:"
+msgstr "Collez ici votre cookie ARL :"
+
+msgid "Where do I find my ARL?"
+msgstr "Où trouver mon ARL ?"
+
+msgid "1. Go to deezer.com and log in."
+msgstr "1. Ouvrez deezer.com et connectez-vous."
+
+msgid "2. Press F12 → Application → Cookies → www.deezer.com."
+msgstr "2. Appuyez sur F12 → Application → Cookies → www.deezer.com."
+
+msgid "3. Copy the value of the cookie “arl”."
+msgstr "3. Copiez la valeur du cookie « arl »."
+
+msgid "4. Paste it above, then click Connect."
+msgstr "4. Collez-la ci-dessus, puis cliquez sur Se connecter."

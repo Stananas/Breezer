@@ -134,13 +134,26 @@ export component Sidebar inherits Rectangle {
         if root.auth-state < 2: VerticalLayout {
             spacing: 6px;
             SectionLabel { fg: root.palette.text-secondary; text: @tr("Deezer login — ARL"); }
-            arl-field := TextInput {
-                height: 32px;
-                text <=> root.arl-input;
-                edited => { root.arl-input = arl-field.text; }
-                color: root.palette.text;
-                accepted => root.connect-requested(root.arl-input);
-            }
+            Text {
+                    text: @tr("Paste your ARL cookie here:");
+                    color: root.palette.text;
+                    font-size: 12px;
+                    font-weight: 600;
+                }
+                Rectangle {
+                    height: 34px;
+                    border-width: 2px;
+                    border-color: root.arl-input != "" ? root.palette.primary : root.palette.surface2;
+                    border-radius: root.palette.radius;
+                    arl-field := TextInput {
+                        height: 34px;
+                        font-family: "monospace";
+                        text <=> root.arl-input;
+                        edited => { root.arl-input = arl-field.text; }
+                        color: root.palette.text;
+                        accepted => root.connect-requested(root.arl-input);
+                    }
+                }
             HorizontalLayout {
                 spacing: 6px;
                 ActionButton {
