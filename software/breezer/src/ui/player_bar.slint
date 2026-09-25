@@ -277,7 +277,7 @@ export component PlayerBar inherits Rectangle {
         }
         Image {
             x: 4px;
-            y: (root.height + 16px) / 2;
+            y: vsl.y + (vsl.height - 18px) / 2;
             width: 18px;
             height: 18px;
             source: root.volume <= 0 ? @image-url("icons/volume-x.png") :
