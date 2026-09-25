@@ -309,10 +309,17 @@ pub struct Config {
     pub onboarding_done: bool,
     /// User color overrides on top of the active theme.
     pub theme_overrides: HashMap<String, String>,
+    /// Global UI zoom (Ctrl + / Ctrl - / Ctrl 0), 1.0 = default.
+    #[serde(default = "zoom_default")]
+    pub zoom: f32,
 }
 
 fn time_format_default() -> String {
     "24h".into()
+}
+
+fn zoom_default() -> f32 {
+    1.0
 }
 
 impl Default for Config {
@@ -327,6 +334,7 @@ impl Default for Config {
             time_format: time_format_default(),
             onboarding_done: false,
             theme_overrides: HashMap::new(),
+            zoom: 1.0,
         }
     }
 }

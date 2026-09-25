@@ -42,6 +42,9 @@ enum Cmd {
     Repeat,
     PlayRecent(i32),
     InstallUpdate,
+    ZoomIn,
+    ZoomOut,
+    ZoomReset,
     Dock(String, String),
     ToggleRight,
     Theme(String),
@@ -168,6 +171,7 @@ enum Evt {
     Repeat(i32),
     Recents(Vec<TrackCard>),
     UpdateReady(String),
+    Zoom(f32),
     OnboardingDone,
 }
 
@@ -377,14 +381,21 @@ fn run_gui() -> Result<()> {
     }
 
     // -- theme & initial state ---------------------------------------------
-    let mut theme = Theme::load_builtin(&cfg.theme_id).unwrap_or_else(|_| Theme::fallback());
-    theme.apply_overrides(&cfg.theme_overrides);
-    window.set_palette(theme.to_slint());
+    window.set_palette(theme_palette(&cfg));
     window.set_theme_id(SharedString::from(cfg.theme_id.as_str()));
     window.set_ui_language(SharedString::from(cfg.language.as_str()));
     window.set_username(SharedString::from(cfg.username.clone().unwrap_or_default()));
     let already_connected = cfg.arl.is_some();
     window.set_auth_state(if already_connected { 2 } else { 0 });
+    // Apply the persisted UI zoom to the initial window size.
+    if cfg.zoom > 0.0 && (cfg.zoom - 1.0).abs() > 0.01 {
+        let base_w: f32 = 1180.0;
+        let base_h: f32 = 760.0;
+        window.window().set_size(slint::LogicalSize::new(
+            base_w * cfg.zoom,
+            base_h * cfg.zoom,
+        ));
+    }
     window.set_current_view(SharedString::from("home"));
     window.set_view_title(SharedString::from(i18n.t("nav.home")));
     window.set_version_status(SharedString::from(format!(
@@ -524,6 +535,9 @@ fn run_gui() -> Result<()> {
     window.on_next_requested(unary(cmd_tx.clone(), Cmd::Next));
     window.on_shuffle_requested(unary(cmd_tx.clone(), Cmd::Shuffle));
     window.on_repeat_requested(unary(cmd_tx.clone(), Cmd::Repeat));
+    window.on_zoom_in_requested(unary(cmd_tx.clone(), Cmd::ZoomIn));
+    window.on_zoom_out_requested(unary(cmd_tx.clone(), Cmd::ZoomOut));
+    window.on_zoom_reset_requested(unary(cmd_tx.clone(), Cmd::ZoomReset));
     window.on_toggle_right_panel_requested(unary(cmd_tx.clone(), Cmd::ToggleRight));
     window.on_open_theme_editor_requested(unary(cmd_tx.clone(), Cmd::OpenThemeEditor));
     window.on_save_layout_requested(unary(cmd_tx.clone(), Cmd::SaveLayout));
@@ -1038,14 +1052,11 @@ fn run_gui() -> Result<()> {
                         if let Err(e) = cfg.save() {
                             log::warn!("could not save config: {e}");
                         }
-                        let mut theme =
-                            Theme::load_builtin(&id).unwrap_or_else(|_| Theme::fallback());
-                        theme.apply_overrides(&cfg.theme_overrides);
                         plugins.notify_theme(&id);
                         let _ = evt_tx2
                             .send(Evt::Theme {
                                 id,
-                                palette: theme.to_slint(),
+                                palette: theme_palette(&cfg),
                             })
                             .await;
                     }
@@ -1068,13 +1079,10 @@ fn run_gui() -> Result<()> {
                         if let Err(e) = cfg.save() {
                             log::warn!("could not save config: {e}");
                         }
-                        let mut theme = Theme::load_builtin(&cfg.theme_id)
-                            .unwrap_or_else(|_| Theme::fallback());
-                        theme.apply_overrides(&cfg.theme_overrides);
                         let _ = evt_tx2
                             .send(Evt::Theme {
                                 id: cfg.theme_id.clone(),
-                                palette: theme.to_slint(),
+                                palette: theme_palette(&cfg),
                             })
                             .await;
                     }
@@ -1086,9 +1094,7 @@ fn run_gui() -> Result<()> {
                         let _ = evt_tx2
                             .send(Evt::Theme {
                                 id: cfg.theme_id.clone(),
-                                palette: Theme::load_builtin(&cfg.theme_id)
-                                    .unwrap_or_else(|_| Theme::fallback())
-                                    .to_slint(),
+                                palette: theme_palette(&cfg),
                             })
                             .await;
                     }
@@ -1155,6 +1161,12 @@ fn run_gui() -> Result<()> {
                                 log::warn!("could not save config: {e}");
                             }
                         }
+                    }
+                    Cmd::ZoomIn => zoom_cmd(&mut cfg, &evt_tx2, 1.1).await,
+                    Cmd::ZoomOut => zoom_cmd(&mut cfg, &evt_tx2, 1.0 / 1.1).await,
+                    Cmd::ZoomReset => {
+                        let step = 1.0 / cfg.zoom;
+                        zoom_cmd(&mut cfg, &evt_tx2, step).await;
                     }
                 }
                     }
@@ -1251,6 +1263,43 @@ fn persist_layout(layout: &LayoutProfile, plugins: &PluginRegistry) {
         log::warn!("could not save layout: {e}");
     }
     plugins.notify_layout(&layout.to_json());
+}
+
+const ZOOM_MIN: f32 = 0.8;
+const ZOOM_MAX: f32 = 1.6;
+
+/// Active theme palette, with the global zoom applied to spacing/radius
+/// (so padding gaps and rounded corners scale with the UI zoom).
+fn theme_palette(cfg: &Config) -> UiPalette {
+    let mut theme = Theme::load_builtin(&cfg.theme_id).unwrap_or_else(|_| Theme::fallback());
+    theme.apply_overrides(&cfg.theme_overrides);
+    let mut pal = theme.to_slint();
+    pal.spacing *= cfg.zoom;
+    pal.radius *= cfg.zoom;
+    pal
+}
+
+/// Apply a relative zoom step: persist the new factor, re-tint the theme
+/// density and emit the window-size ratio for the UI thread to apply.
+async fn zoom_cmd(cfg: &mut Config, evt_tx: &mpsc::Sender<Evt>, step: f32) {
+    let old = cfg.zoom;
+    let mut target = old * step;
+    if (target - 1.0).abs() < 0.01 {
+        target = 1.0; // snap to 100 % near reset / cable steps
+    }
+    let new = target.clamp(ZOOM_MIN, ZOOM_MAX);
+    let ratio = if old > 0.0 { new / old } else { 1.0 };
+    cfg.zoom = new;
+    if let Err(e) = cfg.save() {
+        log::warn!("could not save config: {e}");
+    }
+    let _ = evt_tx.send(Evt::Zoom(ratio)).await;
+    let _ = evt_tx
+        .send(Evt::Theme {
+            id: cfg.theme_id.clone(),
+            palette: theme_palette(cfg),
+        })
+        .await;
 }
 
 fn layout_event(layout: &LayoutProfile) -> Evt {
@@ -1423,6 +1472,14 @@ fn apply_event(ui: &MainWindow, evt: Evt, covers: &Covers) {
             ui.set_recent_results(ModelRc::from(std::rc::Rc::new(VecModel::from(items))));
         }
         Evt::UpdateReady(version) => ui.set_update_ready(SharedString::from(version)),
+        Evt::Zoom(ratio) => {
+            // Keep the current window size ratio: multiply the logical size by
+            // the zoom step (Ctrl+ zoom on the whole app).
+            let size = ui.window().size();
+            let w = size.width as f32 * ratio;
+            let h = size.height as f32 * ratio;
+            ui.window().set_size(slint::LogicalSize::new(w, h));
+        }
         Evt::Playlists(cards) => {
             let items: Vec<crate::PlaylistInfo> = cards
                 .iter()

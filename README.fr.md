@@ -30,6 +30,7 @@ Un lecteur musical **natif, petit et rapide** pour **Deezer** : recherche, strea
 - 🎨 **Système de thèmes** — sombre / clair / AMOLED intégrés, éditeur de couleurs, thèmes communautaires.
 - 🧩 **Panneaux ancrables** — glisser-déposer, espaces de travail sauvegardés.
 - 🌍 **i18n** — français & anglais (interface et messages).
+- 🔍 **Zoom de l'interface** — `Ctrl +` / `Ctrl −` / `Ctrl 0` redimensionnent toute l'app, persistant.
 - 🔄 **Auto-mise à jour** — vérifie, télécharge et se remplace automatiquement ; un clic pour redémarrer.
 - 🔓 **AGPL-3.0** — un logiciel libre.
 

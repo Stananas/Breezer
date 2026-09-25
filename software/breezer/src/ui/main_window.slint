@@ -116,6 +116,9 @@ component DockShell inherits Rectangle {
     callback open-theme-editor-requested();
     callback save-layout-requested();
     callback reset-layout-requested();
+    callback zoom-in-requested();
+    callback zoom-out-requested();
+    callback zoom-reset-requested();
 
     // Which panel is being dragged right now — derived from the always-present
     // frames' DragArea `dragging` flags (no payload transfer needed).
@@ -123,6 +126,40 @@ component DockShell inherits Rectangle {
         left-frame.dragging ? (root.left-panel == "sidebar" ? "sidebar" : "queue") :
         (right-frame.dragging ? (root.right-panel == "sidebar" ? "sidebar" : "queue") : "");
     property <bool> drag-running: drag-panel != "";
+
+    // Global keyboard shortcuts (Ctrl+ / Ctrl- / Ctrl0 = UI zoom).
+    // A FocusScope wraps the whole dock so unhandled keys bubble up to
+    // `capture-key-pressed` even while a text field has focus.
+    FocusScope {
+        width: 100%;
+        height: 100%;
+        forward-focus: zoom-sink;
+        TextInput {
+            zoom-sink := TextInput {
+                x: 0px;
+                y: 0px;
+                width: 1px;
+                height: 1px;
+                color: Colors.transparent;
+            }
+        }
+        capture-key-pressed(key) => {
+            if key.modifiers.control {
+                if key.text == "+" || key.text == "=" || key.text == "add" {
+                    root.zoom-in-requested();
+                    return accept;
+                }
+                if key.text == "-" || key.text == "subtract" || key.text == "minus" {
+                    root.zoom-out-requested();
+                    return accept;
+                }
+                if key.text == "0" {
+                    root.zoom-reset-requested();
+                    return accept;
+                }
+            }
+            return reject;
+        }
 
     // --- main dock layout -------------------------------------------------
     // Main content area (fills the window above the pinned player).
@@ -299,17 +336,18 @@ component DockShell inherits Rectangle {
         dropped-here(p, t) => root.dock-requested(p, t);
     }
     right-zone := DropZone {
-        zone-id: "right";
-        palette: root.palette;
-        zonable: root.drag-running;
-        drop-panel: root.drag-panel;
-        visible: root.drag-running;
-        x: root.width - root.width * 0.3;
-        y: 0px;
-        width: root.width * 0.3;
-        height: root.height;
-        dropped-here(p, t) => root.dock-requested(p, t);
-    }
+            zone-id: "right";
+            palette: root.palette;
+            zonable: root.drag-running;
+            drop-panel: root.drag-panel;
+            visible: root.drag-running;
+            x: root.width - root.width * 0.3;
+            y: 0px;
+            width: root.width * 0.3;
+            height: root.height;
+            dropped-here(p, t) => root.dock-requested(p, t);
+        }
+    } // end FocusScope (global shortcuts)
 }
 
 // Quick pill + button widgets for the onboarding overlay.
@@ -437,6 +475,9 @@ export component MainWindow inherits Window {
     callback open-theme-editor-requested();
     callback save-layout-requested();
     callback reset-layout-requested();
+    callback zoom-in-requested();
+    callback zoom-out-requested();
+    callback zoom-reset-requested();
     callback onboarding-finish-requested();
     callback onboarding-quit-requested();
     callback time-format-requested(string);
@@ -487,6 +528,9 @@ export component MainWindow inherits Window {
         play-recent-requested(id) => root.play-recent-requested(id);
         toggle-requested => root.toggle-requested();
         install-update-requested => root.install-update-requested();
+        zoom-in-requested => root.zoom-in-requested();
+        zoom-out-requested => root.zoom-out-requested();
+        zoom-reset-requested => root.zoom-reset-requested();
         prev-requested => root.prev-requested();
         next-requested => root.next-requested();
         shuffle-requested => root.shuffle-requested();
