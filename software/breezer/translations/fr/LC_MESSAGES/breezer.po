@@ -231,3 +231,21 @@ msgstr "Réinitialiser"
 
 msgid "Independent client, not affiliated with Deezer."
 msgstr "Client indépendant, non affilié à Deezer."
+
+msgid "Playlist"
+msgstr "Playlist"
+
+msgid "Play"
+msgstr "Lecture"
+
+msgid "Shuffle"
+msgstr "Aléatoire"
+
+msgid "Title"
+msgstr "Titre"
+
+msgid "Album"
+msgstr "Album"
+
+msgid "Duration"
+msgstr "Durée"

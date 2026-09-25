@@ -126,6 +126,7 @@ impl TrackCard {
             album: self.album.clone().into(),
             cover: covers.image(&self.cover_url),
             duration: self.duration,
+            duration_label: fmt_duration(self.duration).into(),
         }
     }
 }
@@ -174,6 +175,11 @@ enum Evt {
     UpdateReady(String),
     Zoom(f32),
     ZoomChanged(f32),
+    PlaylistInfo {
+        title: String,
+        cover_url: String,
+        stats: String,
+    },
     OnboardingDone,
 }
 
@@ -965,12 +971,23 @@ fn run_gui() -> Result<()> {
                                     .unwrap_or_else(|| i18n.t("nav.playlists"))
                             })
                             .unwrap_or_else(|_| i18n.t("nav.playlists"));
+                        let cover_url = playlists_cache
+                            .lock()
+                            .map(|g| {
+                                g.iter()
+                                    .find(|p| p.id == pid)
+                                    .map(|p| p.cover_url.clone())
+                                    .unwrap_or_default()
+                            })
+                            .unwrap_or_default();
                         let api2 = api.clone();
                         let covers2 = covers.clone();
                         let tx = evt_tx2.clone();
                         let lc = last_cards.clone();
                         let count_tpl =
                             i18n.t_args("playlist.tracks", &[("count", "{count}")]);
+                        let stats_tpl =
+                            i18n.t_args("playlist.stats", &[("count", "{count}"), ("duration", "{duration}")]);
                         let error_tpl =
                             i18n.t_args("playlist.tracks.error", &[("error", "{error}")]);
                         tokio::spawn(async move {
@@ -993,13 +1010,14 @@ fn run_gui() -> Result<()> {
                                         })
                                         .collect();
                                     let count = cards.len();
+                                    let total_secs: u32 = cards.iter().map(|c| c.duration as u32).sum();
                                     if let Ok(mut g) = lc.lock() {
                                         *g = cards.clone();
                                     }
                                     let _ = tx
                                         .send(Evt::View {
                                             view: "playlist-detail".into(),
-                                            title,
+                                            title: title.clone(),
                                         })
                                         .await;
                                     let _ = tx.send(Evt::Results(cards)).await;
@@ -1007,6 +1025,20 @@ fn run_gui() -> Result<()> {
                                         .send(Evt::Status(
                                             count_tpl.replace("{count}", &count.to_string()),
                                         ))
+                                        .await;
+                                    // Deezer-style playlist header data.
+                                    if !cover_url.is_empty() {
+                                        covers2.ensure(std::slice::from_ref(&cover_url)).await;
+                                    }
+                                    let stats = stats_tpl
+                                        .replace("{count}", &count.to_string())
+                                        .replace("{duration}", &fmt_long_duration(total_secs));
+                                    let _ = tx
+                                        .send(Evt::PlaylistInfo {
+                                            title: title.clone(),
+                                            cover_url,
+                                            stats,
+                                        })
                                         .await;
                                 }
                                 Err(e) => {
@@ -1380,6 +1412,17 @@ fn run_gui() -> Result<()> {
 // Helpers
 // ---------------------------------------------------------------------------
 
+/// Long playlist duration, Deezer style ("1 h 05 min" / "42 min").
+fn fmt_long_duration(total_secs: u32) -> String {
+    let h = total_secs / 3600;
+    let m = (total_secs % 3600) / 60;
+    if h > 0 {
+        format!("{h} h {m:02} min")
+    } else {
+        format!("{m} min")
+    }
+}
+
 fn persist_layout(layout: &LayoutProfile, plugins: &PluginRegistry) {
     if let Err(e) = layout.save() {
         log::warn!("could not save layout: {e}");
@@ -1611,6 +1654,15 @@ fn apply_event(ui: &MainWindow, evt: Evt, covers: &Covers) {
             ui.set_recent_results(ModelRc::from(std::rc::Rc::new(VecModel::from(items))));
         }
         Evt::UpdateReady(version) => ui.set_update_ready(SharedString::from(version)),
+        Evt::PlaylistInfo {
+            title,
+            cover_url,
+            stats,
+        } => {
+            ui.set_playlist_title(SharedString::from(title));
+            ui.set_playlist_cover(covers.image(&cover_url));
+            ui.set_playlist_stats(SharedString::from(stats));
+        }
         Evt::Zoom(ratio) => {
             // Keep the current window size ratio: multiply the logical size by
             // the zoom step (Ctrl+ zoom on the whole app).

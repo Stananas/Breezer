@@ -111,6 +111,7 @@ pub fn empty_track() -> crate::TrackInfo {
         album: slint::SharedString::from(""),
         cover: placeholder_cover(),
         duration: 0.0,
+        duration_label: slint::SharedString::from("0:00"),
     }
 }
 

@@ -84,6 +84,9 @@ component DockShell inherits Rectangle {
     in property <string> version-status;
     in property <string> update-ready;
     in property <float> ui-zoom;
+    in property <string> playlist-title;
+    in property <image> playlist-cover;
+    in property <string> playlist-stats;
     in property <int> queue-index;
 
     in property <string> left-panel;
@@ -235,6 +238,9 @@ component DockShell inherits Rectangle {
                     current-track: root.current-track;
                     playing: root.playing;
                     ui-zoom: root.ui-zoom;
+                    playlist-title: root.playlist-title;
+                    playlist-cover: root.playlist-cover;
+                    playlist-stats: root.playlist-stats;
                     search-requested(q) => root.search-requested(q);
                     play-requested(id) => root.play-requested(id);
                     playlist-selected(id) => root.playlist-selected(id);
@@ -243,6 +249,7 @@ component DockShell inherits Rectangle {
                     zoom-in-requested => root.zoom-in-requested();
                     zoom-out-requested => root.zoom-out-requested();
                     zoom-reset-requested => root.zoom-reset-requested();
+                    shuffle-requested => root.shuffle-requested();
                     toggle-requested => root.toggle-requested();
                     back-requested => root.back-requested();
                     theme-changed(s) => root.theme-changed(s);
@@ -448,6 +455,9 @@ export component MainWindow inherits Window {
     in property <string> version-status;
     in property <string> update-ready;
     in property <float> ui-zoom;
+    in property <string> playlist-title;
+    in property <image> playlist-cover;
+    in property <string> playlist-stats;
 
     // onboarding (first launch)
     in property <bool> onboarding-visible;
@@ -522,6 +532,9 @@ export component MainWindow inherits Window {
         version-status <=> root.version-status;
         update-ready <=> root.update-ready;
         ui-zoom <=> root.ui-zoom;
+        playlist-title <=> root.playlist-title;
+        playlist-cover <=> root.playlist-cover;
+        playlist-stats <=> root.playlist-stats;
 
         search-requested(q) => root.search-requested(q);
         connect-requested(arl) => root.connect-requested(arl);

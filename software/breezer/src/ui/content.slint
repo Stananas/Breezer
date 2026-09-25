@@ -90,6 +90,108 @@ component ColorRow inherits Rectangle {
     }
 }
 
+// One playlist track row (Deezer-style list): cover, title/artist, album, duration.
+component TrackRow inherits Rectangle {
+    in property <Palette> palette;
+    in property <TrackInfo> track;
+    callback clicked(int);
+    height: 54px;
+    border-radius: root.palette.radius;
+    background: ta.has-hover ? root.palette.surface2 : transparent;
+    ta := TouchArea {
+        clicked => root.clicked(root.track.id);
+        mouse-cursor: pointer;
+    }
+    // Cover thumbnail + play overlay on hover.
+    Rectangle {
+        x: 4px;
+        y: 5px;
+        width: 44px;
+        height: 44px;
+        border-radius: 6px;
+        clip: true;
+        background: root.palette.surface2;
+        Image {
+            source: root.track.cover;
+            width: 44px;
+            height: 44px;
+            image-fit: cover;
+        }
+        Rectangle {
+            x: 0px; y: 0px; width: 44px; height: 44px;
+            visible: ta.has-hover;
+            background: root.palette.bg;
+            opacity: 0.55;
+        }
+        if ta.has-hover: Image {
+            x: (44px - 16px) / 2;
+            y: (44px - 16px) / 2;
+            width: 16px;
+            height: 16px;
+            source: @image-url("icons/play.png");
+            colorize: root.palette.on-primary;
+        }
+    }
+    // Title / artist.
+    Rectangle {
+        x: 56px;
+        y: 0px;
+        width: max(root.width - 56px - 200px - 90px, 120px);
+        height: root.height;
+        clip: true;
+        VerticalLayout {
+            spacing: 2px;
+            padding-top: 9px;
+            Text {
+                text: root.track.title;
+                color: root.palette.text;
+                font-size: 13px;
+                font-weight: 600;
+                overflow: elide;
+            }
+            Text {
+                text: root.track.artist;
+                color: root.palette.text-secondary;
+                font-size: 12px;
+                overflow: elide;
+            }
+        }
+    }
+    // Album.
+    Rectangle {
+        x: root.width - 178px - 90px + 4px;
+        y: 0px;
+        width: 174px;
+        height: root.height;
+        clip: true;
+        Text {
+            text: root.track.album;
+            color: root.palette.text-secondary;
+            font-size: 12px;
+            overflow: elide;
+            width: 100%;
+            height: 100%;
+            vertical-alignment: center;
+        }
+    }
+    // Duration.
+    Rectangle {
+        x: root.width - 84px;
+        y: 0px;
+        width: 76px;
+        height: root.height;
+        Text {
+            text: root.track.duration-label;
+            color: root.palette.text-secondary;
+            font-size: 12px;
+            horizontal-alignment: right;
+            vertical-alignment: center;
+            width: 100%;
+            height: 100%;
+        }
+    }
+}
+
 export component ContentView inherits Rectangle {
     in property <Palette> palette;
     in property <[TrackInfo]> results;
@@ -103,6 +205,9 @@ export component ContentView inherits Rectangle {
     in property <TrackInfo> current-track;
     in property <[TrackInfo]> recents;
     in property <float> ui-zoom;
+    in property <string> playlist-title;
+    in property <image> playlist-cover;
+    in property <string> playlist-stats;
     in property <bool> playing;
     callback toggle-requested();
     callback play-recent-requested(int);
@@ -110,6 +215,7 @@ export component ContentView inherits Rectangle {
     callback zoom-in-requested();
     callback zoom-out-requested();
     callback zoom-reset-requested();
+    callback shuffle-requested();
     callback search-requested(string);
     callback play-requested(int);
     callback playlist-selected(string);
@@ -440,7 +546,7 @@ export component ContentView inherits Rectangle {
     }
 
     // ----------------------------------------------------------------
-    // PLAYLIST DETAIL VIEW
+    // PLAYLIST DETAIL VIEW (Deezer-style playlist page)
     // ----------------------------------------------------------------
     if root.current-view == "playlist-detail": Rectangle {
     width: 100%;
@@ -452,6 +558,8 @@ export component ContentView inherits Rectangle {
             padding-top: root.palette.spacing;
             padding-bottom: root.palette.spacing;
             spacing: root.palette.spacing;
+
+            // back row
             HorizontalLayout {
                 spacing: 12px;
                 alignment: center;
@@ -460,13 +568,136 @@ export component ContentView inherits Rectangle {
                     label: @tr("← Playlists");
                     clicked => root.back-requested();
                 }
-                Text {
-                    text: root.view-title;
-                    font-size: 20px;
-                    font-weight: 800;
-                    color: root.palette.text;
+                Rectangle { horizontal-stretch: 1; }
+            }
+
+            // playlist header card (cover, title, stats, Play / Shuffle)
+            Rectangle {
+                border-radius: root.palette.radius * 2;
+                background: root.palette.surface;
+                border-width: 1px;
+                border-color: root.palette.surface2;
+                HorizontalLayout {
+                    spacing: 20px;
+                    padding: 18px;
+                    Rectangle {
+                        width: 120px;
+                        height: 120px;
+                        border-radius: root.palette.radius;
+                        clip: true;
+                        background: root.palette.surface2;
+                        Image {
+                            source: root.playlist-cover;
+                            width: 120px;
+                            height: 120px;
+                            image-fit: cover;
+                        }
+                    }
+                    VerticalLayout {
+                        spacing: 6px;
+                        vertical-stretch: 1;
+                        Text {
+                            text: @tr("Playlist");
+                            color: root.palette.primary;
+                            font-size: 12px;
+                            font-weight: 700;
+                        }
+                        Text {
+                            text: root.playlist-title;
+                            color: root.palette.text;
+                            font-size: 26px;
+                            font-weight: 800;
+                            overflow: elide;
+                        }
+                        Text {
+                            text: root.playlist-stats;
+                            color: root.palette.text-secondary;
+                            font-size: 13px;
+                        }
+                        Rectangle {
+                            height: 4px;
+                            vertical-stretch: 1;
+                        }
+                        HorizontalLayout { spacing: 10px;
+                            // Play all
+                            Rectangle {
+                                height: 40px;
+                                border-radius: root.palette.radius;
+                                background: root.palette.primary;
+                                playta := TouchArea {
+                                    clicked => {
+                                        if root.results.length > 0 {
+                                            root.play-requested(root.results[0].id);
+                                        }
+                                    }
+                                    mouse-cursor: pointer;
+                                }
+                                HorizontalLayout {
+                                    padding-left: 16px;
+                                    padding-right: 18px;
+                                    spacing: 8px;
+                                    alignment: center;
+                                    Image {
+                                        width: 16px;
+                                        height: 16px;
+                                        source: @image-url("icons/play.png");
+                                        colorize: root.palette.on-primary;
+                                    }
+                                    Text {
+                                        text: @tr("Play");
+                                        color: root.palette.on-primary;
+                                        font-size: 13px;
+                                        font-weight: 700;
+                                    }
+                                }
+                            }
+                            // Shuffle
+                            Rectangle {
+                                height: 40px;
+                                border-radius: root.palette.radius;
+                                background: root.palette.surface2;
+                                shuffta := TouchArea {
+                                    clicked => {
+                                        root.shuffle-requested();
+                                        if root.results.length > 0 {
+                                            root.play-requested(root.results[0].id);
+                                        }
+                                    }
+                                    mouse-cursor: pointer;
+                                }
+                                HorizontalLayout {
+                                    padding-left: 14px;
+                                    padding-right: 16px;
+                                    spacing: 8px;
+                                    alignment: center;
+                                    Image {
+                                        width: 16px;
+                                        height: 16px;
+                                        source: @image-url("icons/shuffle.png");
+                                        colorize: root.palette.text;
+                                    }
+                                    Text {
+                                        text: @tr("Shuffle");
+                                        color: root.palette.text;
+                                        font-size: 13px;
+                                        font-weight: 700;
+                                    }
+                                }
+                            }
+                        }
+                    }
                 }
             }
+
+            // column header
+            Rectangle {
+                height: 22px;
+                Text { text: @tr("Title"); x: 56px; y: 3px; width: 200px; color: root.palette.text-secondary; font-size: 11px; font-weight: 700; }
+                Text { text: @tr("Album"); x: max(root.width - 56px - 356px, 256px) + 3px; y: 3px; width: 170px; color: root.palette.text-secondary; font-size: 11px; font-weight: 700; overflow: elide; }
+                Text { text: @tr("Duration"); x: root.width - 90px; y: 3px; width: 76px; color: root.palette.text-secondary; font-size: 11px; font-weight: 700; horizontal-alignment: right; }
+            }
+
+            // track list
             Rectangle {
             width: 100%;
             height: 100%;
@@ -476,12 +707,11 @@ export component ContentView inherits Rectangle {
                     width: 100%;
                     height: 100%;
                         vertical-stretch: 1;
-                        GridLayout {
-                            spacing: 14px;
-                            padding: 4px;
-                            for track[idx] in root.results: CoverCard {
+                        VerticalLayout {
+                            spacing: 2px;
+                            for t in root.results: TrackRow {
                                 palette: root.palette;
-                                track: track;
+                                track: t;
                                 clicked(id) => root.play-requested(id);
                             }
                         }

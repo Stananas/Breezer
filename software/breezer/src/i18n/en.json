@@ -32,6 +32,7 @@
   "update.download.failed": "Update download failed: {error}",
   "update.install.failed": "Could not install the update: {error}",
   "update.ready": "Update applied — restarting…",
+  "playlist.stats": "{count} tracks · {duration}",
   "nav.home": "Home",
   "nav.explore": "Explore",
   "nav.favorites": "Favorites",
