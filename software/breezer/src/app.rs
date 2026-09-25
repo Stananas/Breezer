@@ -99,8 +99,8 @@ enum Evt {
 pub fn run() -> Result<()> {
     init_logger();
 
-    let args = std::env::args().skip(1);
-    for a in args {
+    let mut args = std::env::args().skip(1);
+    while let Some(a) = args.next() {
         match a.as_str() {
             "--version" | "-V" => {
                 println!("breezer {}", env!("CARGO_PKG_VERSION"));
@@ -108,6 +108,14 @@ pub fn run() -> Result<()> {
             }
             "--update-check" => return run_update_check(),
             "--selftest" => return run_selftest(),
+            "--stream-test" => {
+                let id = args
+                    .next()
+                    .ok_or_else(|| Error::Other("usage: breezer --stream-test <track_id>".into()))?
+                    .parse::<u64>()
+                    .map_err(|e| Error::Other(format!("invalid track id: {e}")))?;
+                return run_stream_test(id);
+            }
             "--help" | "-h" => {
                 print_help();
                 return Ok(());
@@ -126,10 +134,11 @@ fn init_logger() {
 fn print_help() {
     println!(
         "breezer {version}\n\nUSAGE:\n    breezer [OPTIONS]\n\nOPTIONS:\n\
-         \x20   -V, --version   print version\n\
-         \x20   --update-check  check for updates and exit\n\
-         \x20   --selftest      test the audio output and exit\n\
-         \x20   -h, --help      show this help\n",
+         \x20   -V, --version            print version\n\
+         \x20   --update-check           check for updates and exit\n\
+         \x20   --selftest               test the audio output and exit\n\
+         \x20   --stream-test <trackid>  fetch+decrypt a stream and exit\n\
+         \x20   -h, --help               show this help\n",
         version = env!("CARGO_PKG_VERSION")
     );
 }
@@ -154,6 +163,46 @@ fn run_update_check() -> Result<()> {
         match crate::updater::check(&client).await? {
             Some(info) => println!("update available: v{} ({})", info.version, info.url),
             None => println!("up to date (v{})", env!("CARGO_PKG_VERSION")),
+        }
+        Ok(())
+    })
+}
+
+/// End-to-end streaming diagnostic: getUserData → pageTrack → media.get_url →
+/// download → Blowfish decrypt → verify MP3 header. No audio playback.
+fn run_stream_test(track_id: u64) -> Result<()> {
+    init_logger();
+    let cfg = Config::load();
+    let rt = tokio::runtime::Runtime::new()?;
+    rt.block_on(async {
+        let mut api = ApiClient::from_config(&cfg)?;
+        match api.auth_with_arl(cfg.arl.as_deref().unwrap_or_default()).await {
+            Ok(s) => {
+                println!("session ok for user {}", s.user_id);
+                api.set_session(cfg.arl.clone().unwrap(), &s);
+            }
+            Err(e) => {
+                println!("no valid ARL session: {e}");
+                return Ok(());
+            }
+        }
+        match api.stream_encrypted_mp3(track_id).await {
+            Ok(enc) => {
+                println!("downloaded {} encrypted bytes", enc.len());
+                match crate::player::decrypt::decrypt_audio_stream(&track_id.to_string(), &enc) {
+                    Ok(dec) => {
+                        println!("decrypted {} bytes", dec.len());
+                        let head = std::cmp::min(8, dec.len());
+                        if dec.starts_with(b"ID3") || (dec.first() == Some(&0xFF) && (dec.get(1).copied().unwrap_or(0) & 0xE0) == 0xE0) {
+                            println!("✓ MP3 header OK: {:02x?}", &dec[..head]);
+                        } else {
+                            println!("unexpected stream header: {:02x?}", &dec[..head]);
+                        }
+                    }
+                    Err(e) => println!("decryption failed: {e}"),
+                }
+            }
+            Err(e) => println!("streaming fetch failed: {e}"),
         }
         Ok(())
     })
@@ -191,6 +240,7 @@ fn run_gui() -> Result<()> {
     window.set_auth_state(if cfg.arl.is_some() { 1 } else { 0 });
     window.set_current_view(SharedString::from("home"));
     window.set_view_title(SharedString::from(i18n.t("nav.home")));
+    window.set_version_status(SharedString::from(format!("Breezer v{}", env!("CARGO_PKG_VERSION"))));
     window.set_search_status(SharedString::from(i18n.t("search.prompt")));
     window.set_volume(cfg.volume);
     window.set_current_track(empty_track());
@@ -337,6 +387,17 @@ fn run_gui() -> Result<()> {
             let mut cfg = cfg;
             let mut i18n = i18n;
             let mut api = ApiClient::from_config(&cfg)?;
+            // session_id + license_token are session-scoped (not persisted):
+            // re-validate the stored ARL at startup to refresh them.
+            if let Some(arl) = cfg.arl.clone() {
+                match api.auth_with_arl(&arl).await {
+                    Ok(s) => {
+                        log::info!("session refreshed for {}", s.username);
+                        api.set_session(arl, &s);
+                    }
+                    Err(e) => log::warn!("stored ARL no longer valid: {e}"),
+                }
+            }
             let mut player = Engine::new();
             let mut queue: PlayQueue<TrackCard> = PlayQueue::new();
             let mut layout = layout;
@@ -456,13 +517,33 @@ fn run_gui() -> Result<()> {
                     }
 
                     Cmd::Play(id) => {
-                        play_card(&last_cards, id as u64, &mut queue, &evt_tx2, &i18n, &plugins)
-                            .await;
+                        play_card(
+                            &last_cards,
+                            id as u64,
+                            &mut player,
+                            &api,
+                            &mut queue,
+                            &mut cfg,
+                            &evt_tx2,
+                            &i18n,
+                            &plugins,
+                        )
+                        .await;
                     }
                     Cmd::PlayIndex(i) => {
                         if let Some(card) = last_cards.get(i) {
-                            play_card(&last_cards, card.id as u64, &mut queue, &evt_tx2, &i18n, &plugins)
-                                .await;
+                            play_card(
+                                &last_cards,
+                                card.id as u64,
+                                &mut player,
+                                &api,
+                                &mut queue,
+                                &mut cfg,
+                                &evt_tx2,
+                                &i18n,
+                                &plugins,
+                            )
+                            .await;
                         }
                     }
 
@@ -471,13 +552,15 @@ fn run_gui() -> Result<()> {
                         let _ = evt_tx2.send(Evt::Playing(player.is_playing())).await;
                     }
                     Cmd::Prev => {
-                        if let Some(card) = queue.prev() {
+                        if let Some(card) = queue.prev().cloned() {
                             let _ = evt_tx2.send(Evt::TrackChanged(card.clone())).await;
+                            start_streaming(card, &mut player, &api, &evt_tx2, &i18n).await;
                         }
                     }
                     Cmd::Next => {
-                        if let Some(card) = queue.next() {
+                        if let Some(card) = queue.next().cloned() {
                             let _ = evt_tx2.send(Evt::TrackChanged(card.clone())).await;
+                            start_streaming(card, &mut player, &api, &evt_tx2, &i18n).await;
                         }
                     }
                     Cmd::Seek(v) => {
@@ -629,19 +712,26 @@ fn run_gui() -> Result<()> {
         let weak = window.as_weak();
         rt.spawn(async move {
             let client = reqwest::Client::new();
+            let base = format!("Breezer v{}", env!("CARGO_PKG_VERSION"));
             match crate::updater::check(&client).await {
                 Ok(Some(info)) => {
+                    let msg = format!("{base} · ⬆ v{}", info.version);
                     let w = weak.clone();
                     let _ = slint::invoke_from_event_loop(move || {
                         if let Some(ui) = w.upgrade() {
-                            ui.set_search_status(SharedString::from(format!(
-                                "🎉 v{} available — github.com/Breezer-App/breezer",
-                                info.version
-                            )));
+                            ui.set_version_status(SharedString::from(msg));
                         }
                     });
                 }
-                Ok(None) => {}
+                Ok(None) => {
+                    let msg = format!("{base} · ✓ up to date");
+                    let w = weak.clone();
+                    let _ = slint::invoke_from_event_loop(move || {
+                        if let Some(ui) = w.upgrade() {
+                            ui.set_version_status(SharedString::from(msg));
+                        }
+                    });
+                }
                 Err(e) => log::debug!("update check skipped: {e}"),
             }
         });
@@ -670,12 +760,15 @@ fn layout_event(layout: &LayoutProfile) -> Evt {
     }
 }
 
-/// Queue + start a track. v0.1: metadata & queue only — actual streaming lands
-/// in v0.2 (ARL session → `Engine::play_source(decrypted, decoded source)`).
+/// Queue + start a track.
+#[allow(clippy::too_many_arguments)]
 async fn play_card(
     cards: &[TrackCard],
     id: u64,
+    player: &mut Engine,
+    api: &ApiClient,
     queue: &mut PlayQueue<TrackCard>,
+    cfg: &mut Config,
     evt_tx: &mpsc::Sender<Evt>,
     i18n: &I18n,
     plugins: &PluginRegistry,
@@ -693,8 +786,59 @@ async fn play_card(
         artist: card.artist.clone(),
         album: card.album.clone(),
     });
-    // v0.2: fetch stream → decrypt → decode (symphonia) → Engine::play_source.
-    let _ = evt_tx.send(Evt::Status(i18n.t("player.auth.required"))).await;
+
+    if cfg.arl.is_none() {
+        let _ = evt_tx.send(Evt::Status(i18n.t("player.auth.required"))).await;
+        return;
+    }
+    start_streaming(card, player, api, evt_tx, i18n).await;
+}
+
+/// Full Deezer streaming flow (mirroring the tui-dzr client):
+/// pageTrack → media.get_url (BF_CBC_STRIPE/MP3_128) → download → Blowfish
+/// decryption → rodio MP3 playback.
+async fn start_streaming(
+    card: TrackCard,
+    player: &mut Engine,
+    api: &ApiClient,
+    evt_tx: &mpsc::Sender<Evt>,
+    i18n: &I18n,
+) {
+    if !player.has_device() {
+        let _ = evt_tx.send(Evt::Status(i18n.t("player.no.device"))).await;
+        return;
+    }
+    let _ = evt_tx.send(Evt::Status(i18n.t("player.streaming"))).await;
+    let encrypted = match api.stream_encrypted_mp3(card.id as u64).await {
+        Ok(b) => b,
+        Err(e) => {
+            log::warn!("streaming fetch failed: {e}");
+            let _ = evt_tx
+                .send(Evt::Status(i18n.t_args("player.stream.error", &[("error", &e.to_string())])))
+                .await;
+            return;
+        }
+    };
+    let decrypted = match crate::player::decrypt::decrypt_audio_stream(&card.id.to_string(), &encrypted) {
+        Ok(d) => d,
+        Err(e) => {
+            log::warn!("stream decryption failed: {e}");
+            let _ = evt_tx
+                .send(Evt::Status(i18n.t_args("player.stream.error", &[("error", &e.to_string())])))
+                .await;
+            return;
+        }
+    };
+    match player.play_mp3_bytes(decrypted) {
+        Ok(()) => {
+            let _ = evt_tx.send(Evt::Playing(true)).await;
+        }
+        Err(e) => {
+            let _ = evt_tx
+                .send(Evt::Status(i18n.t_args("player.stream.error", &[("error", &e.to_string())])))
+                .await;
+        }
+    }
 }
 
 // ---------------------------------------------------------------------------

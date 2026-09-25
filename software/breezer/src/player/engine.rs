@@ -87,8 +87,10 @@ impl Engine {
     }
 
     /// Seek within the current source (if the source supports it).
-    pub fn seek(&self, _seconds: f32) {
-        // v0.2: `Player::try_seek` against the stream's decodable source.
+    pub fn seek(&self, seconds: f32) {
+        if let Some(p) = &self.player {
+            let _ = p.try_seek(Duration::from_secs_f32(seconds.max(0.0)));
+        }
     }
 
     pub fn stop(&mut self) {
@@ -110,6 +112,28 @@ impl Engine {
             p.play();
             self.playing = true;
         }
+    }
+
+    /// Play a fully decrypted MP3 stream (memory buffer).
+    ///
+    /// Flow (mirroring tui-dzr): decrypt the media.get_url payload
+    /// (Blowfish-CBC stripe) and feed the bytes to rodio's symphonia decoder.
+    pub fn play_mp3_bytes(&mut self, bytes: Vec<u8>) -> crate::error::Result<()> {
+        let p = self
+            .player
+            .as_ref()
+            .ok_or_else(|| crate::error::Error::Other("no audio output device".into()))?;
+        let cursor = std::io::Cursor::new(bytes);
+        let decoder = rodio::Decoder::new(cursor).map_err(|e| {
+            crate::error::Error::Other(format!("failed to decode MP3 stream: {e}"))
+        })?;
+        p.stop();
+        p.append(decoder);
+        p.set_volume(self.volume);
+        p.play();
+        self.playing = true;
+        log::info!("streaming: MP3 decoder started");
+        Ok(())
     }
 
     /// v0.2: wrap a Deezer stream (decrypted, chunked HTTP) into a

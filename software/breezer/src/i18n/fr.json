@@ -16,6 +16,8 @@
   "auth.anonymous": "Non connecté·e",
   "player.auth.required": "Connectez-vous avec votre ARL pour lire des pistes.",
   "player.no.device": "Aucun périphérique audio trouvé.",
+  "player.streaming": "Lecture en cours…",
+  "player.stream.error": "Lecture impossible : {error}",
   "player.playlist.queued": "File chargée : {count} pistes",
   "layout.saved": "Layout enregistré.",
   "layout.reset": "Layout réinitialisé.",

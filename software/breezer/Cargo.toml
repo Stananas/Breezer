@@ -24,6 +24,7 @@ dirs = { workspace = true }
 webbrowser = { workspace = true }
 md-5 = { workspace = true }
 aes = { workspace = true }
+blowfish = { workspace = true }
 cbc = { workspace = true }
 hex = { workspace = true }
 semver = { workspace = true }

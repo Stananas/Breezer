@@ -81,6 +81,8 @@ pub struct DzUserData {
     pub session_id: String,
     pub user_id: i64,
     pub username: String,
+    /// `USER.OPTIONS.license_token`, needed for media.get_url.
+    pub license_token: String,
 }
 
 impl DzUserData {
@@ -115,7 +117,13 @@ impl DzUserData {
             .or_else(|| user.get("NAME").and_then(|v| v.as_str()))
             .unwrap_or_default()
             .to_string();
-        Ok(Self { token, session_id, user_id, username })
+        let license_token = user
+            .get("OPTIONS")
+            .and_then(|o| o.get("license_token"))
+            .and_then(|v| v.as_str())
+            .unwrap_or_default()
+            .to_string();
+        Ok(Self { token, session_id, user_id, username, license_token })
     }
 }
 #[cfg(test)]

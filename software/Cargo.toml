@@ -35,6 +35,7 @@ webbrowser = "1"
 
 md-5 = "0.10"
 aes = "0.8"
+blowfish = "0.9"
 cbc = { version = "0.1", features = ["alloc", "std"] }
 hex = "0.4"
 

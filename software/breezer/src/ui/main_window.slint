@@ -7,6 +7,7 @@
 //
 // v0.1 dockable panels: "sidebar" and "queue" (the player stays at the bottom).
 
+import "./fonts/Lexend.ttf";
 import { BreezerSlider, IconBtn, Palette, TrackInfo } from "./elements.slint";
 import { Sidebar } from "./sidebar.slint";
 import { ContentView } from "./content.slint";
@@ -20,36 +21,16 @@ export global DockBridge {
     pure callback transfer-to-panel(data-transfer) -> string;
 }
 
-// A dockable panel wrapper: drag handle header (DragArea) + content slot.
+// A dockable panel wrapper (no drag banner — panels are placed via the layout
+// manager, saving vertical space).
 component DockFrame inherits Rectangle {
     in-out property <string> panel-kind;
     in property <Palette> palette;
-    out property <bool> dragging: grab-area.dragging;
+    out property <bool> dragging: false;
 
-    VerticalLayout {
-        spacing: 0;
-        Rectangle {
-            height: 24px;
-            background: root.palette.surface2;
-            grab-area := DragArea {
-                width: 100%;
-                height: 100%;
-                allow-move: true;
-                data: DockBridge.panel-to-transfer(root.panel-kind);
-            }
-            Text {
-                text: root.panel-kind == "sidebar" ? @tr("Navigation") :
-                      (root.panel-kind == "queue" ? @tr("Queue") : @tr("Player"));
-                font-size: 11px;
-                color: root.palette.text-secondary;
-                vertical-alignment: center;
-                horizontal-alignment: center;
-            }
-        }
-        Rectangle {
-            vertical-stretch: 1;
-            @children
-        }
+    Rectangle {
+        vertical-stretch: 1;
+        @children
     }
 }
 
@@ -94,6 +75,7 @@ component DockShell inherits Rectangle {
     in property <bool> player-enabled;
     in property <string> theme-id;
     in property <string> ui-language;
+    in property <string> version-status;
     in property <int> queue-index;
 
     in property <string> left-panel;
@@ -150,6 +132,7 @@ component DockShell inherits Rectangle {
                         username: root.username;
                         auth-state: root.auth-state;
                         current-view: root.current-view;
+                        version-status: root.version-status;
                         view-requested(v) => root.view-requested(v);
                         connect-requested(arl) => root.connect-requested(arl);
                         open-browser-requested => root.open-browser-requested();
@@ -201,6 +184,7 @@ component DockShell inherits Rectangle {
                         username: root.username;
                         auth-state: root.auth-state;
                         current-view: root.current-view;
+                        version-status: root.version-status;
                         view-requested(v) => root.view-requested(v);
                         connect-requested(arl) => root.connect-requested(arl);
                         open-browser-requested => root.open-browser-requested();
@@ -219,7 +203,7 @@ component DockShell inherits Rectangle {
 
         // BOTTOM slot — the player is ALWAYS pinned here (never replaced).
         Rectangle {
-            height: 112px;
+            height: 86px;
             bottom-frame := DockFrame {
                 panel-kind: "player";
                 palette: root.palette;
@@ -320,6 +304,7 @@ export component MainWindow inherits Window {
     preferred-width: 1180px;
     preferred-height: 760px;
     background: self.palette.bg;
+    default-font-family: "Lexend";
 
     in property <Palette> palette;
 
@@ -347,6 +332,7 @@ export component MainWindow inherits Window {
 
     in property <string> theme-id;
     in property <string> ui-language;
+    in property <string> version-status;
 
     // onboarding (first launch)
     in property <bool> onboarding-visible;
@@ -403,6 +389,7 @@ export component MainWindow inherits Window {
         queue-index <=> root.queue-index;
         theme-id <=> root.theme-id;
         ui-language <=> root.ui-language;
+        version-status <=> root.version-status;
 
         search-requested(q) => root.search-requested(q);
         connect-requested(arl) => root.connect-requested(arl);

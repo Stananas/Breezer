@@ -16,6 +16,8 @@ use models::{DzSearchResponse, Track};
 pub const GW_LIGHT_URL: &str = "https://www.deezer.com/ajax/gw-light.php";
 /// Public REST endpoint.
 pub const API_BASE: &str = "https://api.deezer.com";
+/// Signed media URL endpoint (login-based streaming, see tui-dzr flow).
+pub const MEDIA_URL_API: &str = "https://media.deezer.com/v1/get_url";
 
 /// Result of an ARL-based login.
 #[derive(Debug, Clone, Default)]
@@ -25,6 +27,8 @@ pub struct AuthSession {
     pub user_id: i64,
     /// Gateway session id (SESSION_ID) for authenticated calls.
     pub session_id: String,
+    /// Gateway license token (USER.OPTIONS.license_token) for media.get_url.
+    pub license_token: String,
 }
 
 #[derive(Debug, Clone)]
@@ -34,6 +38,8 @@ pub struct ApiClient {
     api_token: Option<String>,
     /// Gateway session id (SESSION_ID), required for authenticated gw calls.
     session_id: Option<String>,
+    /// Gateway license token, required for media.get_url streaming.
+    license_token: Option<String>,
 }
 
 /// Real browser User-Agent: Deezer's gateway refuses or reduces responses to
@@ -47,7 +53,7 @@ impl ApiClient {
             .user_agent(BROWSER_UA)
             .cookie_store(true)
             .build()?;
-        Ok(Self { http, arl: None, api_token: None, session_id: None })
+        Ok(Self { http, arl: None, api_token: None, session_id: None, license_token: None })
     }
 
     /// Build from the stored configuration.
@@ -124,6 +130,7 @@ impl ApiClient {
             username: inner.username.clone(),
             user_id: inner.user_id,
             session_id: inner.session_id.clone(),
+            license_token: inner.license_token.clone(),
         })
     }
 
@@ -132,6 +139,7 @@ impl ApiClient {
         self.arl = Some(arl);
         self.api_token = Some(session.api_token.clone());
         self.session_id = Some(session.session_id.clone());
+        self.license_token = Some(session.license_token.clone());
     }
 
     // ---------------------------------------------------------------------
@@ -179,5 +187,103 @@ impl ApiClient {
             .error_for_status()?;
         let body: models::DzPlaylistResponse = resp.json().await?;
         Ok(body.data)
+    }
+
+    // ---------------------------------------------------------------------
+    // Streaming (flow matched with the tui-dzr client)
+    //   pageTrack → TRACK_TOKEN → media.get_url (license_token, BF_CBC_STRIPE)
+    //   → signed CDN URL → download encrypted bytes (decrypted by the player)
+    // ---------------------------------------------------------------------
+
+    /// Authenticated gateway call (JSON body + `arl`/`sid` cookies + api_token).
+    async fn gateway_call(&self, method: &str, payload: serde_json::Value) -> Result<serde_json::Value> {
+        let api_token = self
+            .api_token
+            .as_deref()
+            .ok_or_else(|| Error::Auth("not authenticated — connect with your ARL first".into()))?;
+        let arl = self.arl.as_deref().unwrap_or_default();
+        let sid = self.session_id.as_deref().unwrap_or_default();
+        self.http
+            .post(GW_LIGHT_URL)
+            .query(&[
+                ("method", method),
+                ("api_version", "1.0"),
+                ("api_token", api_token),
+            ])
+            .header("Cookie", format!("arl={arl}; sid={sid}"))
+            .header("Content-Type", "application/json")
+            .json(&payload)
+            .send()
+            .await?
+            .error_for_status()?
+            .json::<serde_json::Value>()
+            .await
+            .map_err(Error::from)
+    }
+
+    /// Resolve the `TRACK_TOKEN` for a track id (`deezer.pageTrack`).
+    pub async fn track_token(&self, track_id: u64) -> Result<String> {
+        let resp = self
+            .gateway_call("deezer.pageTrack", serde_json::json!({ "sng_id": track_id.to_string() }))
+            .await?;
+        let data = resp
+            .get("results")
+            .and_then(|r| r.get("DATA"))
+            .or_else(|| resp.get("results"));
+        data.and_then(|d| d.get("TRACK_TOKEN"))
+            .and_then(|t| t.as_str())
+            .map(str::to_string)
+            .ok_or_else(|| Error::Other("pageTrack response missing TRACK_TOKEN".into()))
+    }
+
+    /// Ask media.get_url for a signed stream URL (MP3_128, Blowfish-CBC stripe).
+    pub async fn media_url(&self, track_token: &str) -> Result<String> {
+        let license = self
+            .license_token
+            .as_deref()
+            .ok_or_else(|| Error::Auth("no license token — reconnect with your ARL".into()))?;
+        let arl = self.arl.as_deref().unwrap_or_default();
+        let sid = self.session_id.as_deref().unwrap_or_default();
+
+        let payload = serde_json::json!({
+            "license_token": license,
+            "media": [{
+                "type": "FULL",
+                "formats": [{ "cipher": "BF_CBC_STRIPE", "format": "MP3_128" }]
+            }],
+            "track_tokens": [track_token]
+        });
+
+        let resp: serde_json::Value = self
+            .http
+            .post(MEDIA_URL_API)
+            .header("Cookie", format!("arl={arl}; sid={sid}"))
+            .header("Content-Type", "application/json")
+            .json(&payload)
+            .send()
+            .await?
+            .error_for_status()?
+            .json()
+            .await?;
+
+        resp["data"][0]["media"][0]["sources"][0]["url"]
+            .as_str()
+            .map(str::to_string)
+            .ok_or_else(|| Error::Other("media.get_url response missing signed URL".into()))
+    }
+
+    /// Full streaming fetch: token → signed URL → encrypted MP3 bytes.
+    pub async fn stream_encrypted_mp3(&self, track_id: u64) -> Result<Vec<u8>> {
+        let token = self.track_token(track_id).await?;
+        let url = self.media_url(&token).await?;
+        let bytes = self
+            .http
+            .get(&url)
+            .send()
+            .await?
+            .error_for_status()?
+            .bytes()
+            .await?;
+        Ok(bytes.to_vec())
     }
 }

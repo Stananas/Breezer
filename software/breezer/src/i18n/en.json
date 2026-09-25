@@ -16,6 +16,8 @@
   "auth.anonymous": "Not connected",
   "player.auth.required": "Sign in with your ARL to play tracks.",
   "player.no.device": "No audio output device found.",
+  "player.streaming": "Streaming…",
+  "player.stream.error": "Streaming failed: {error}",
   "player.playlist.queued": "Queued: {count} tracks",
   "layout.saved": "Layout saved.",
   "layout.reset": "Layout reset to default.",

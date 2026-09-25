@@ -60,6 +60,7 @@ export component Sidebar inherits Rectangle {
     callback open-browser-requested();
 
     property <string> arl-input: "";
+    in property <string> version-status;
 
     background: root.palette.surface;
 
@@ -137,7 +138,7 @@ export component Sidebar inherits Rectangle {
         Rectangle { vertical-stretch: 1; }
 
         Text {
-            text: @tr("v0.1 — AGPL-3.0");
+            text: root.version-status;
             color: root.palette.text-secondary;
             font-size: 11px;
         }
