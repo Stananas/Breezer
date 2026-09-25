@@ -213,3 +213,21 @@ msgstr "Découvrir les tendances"
 
 msgid "Install & restart"
 msgstr "Installer & redémarrer"
+
+msgid "Appearance"
+msgstr "Apparence"
+
+msgid "UI zoom"
+msgstr "Zoom de l'interface"
+
+msgid "Customization"
+msgstr "Personnalisation"
+
+msgid "About"
+msgstr "À propos"
+
+msgid "Reset"
+msgstr "Réinitialiser"
+
+msgid "Independent client, not affiliated with Deezer."
+msgstr "Client indépendant, non affilié à Deezer."

@@ -102,10 +102,14 @@ export component ContentView inherits Rectangle {
     in property <string> username;
     in property <TrackInfo> current-track;
     in property <[TrackInfo]> recents;
+    in property <float> ui-zoom;
     in property <bool> playing;
     callback toggle-requested();
     callback play-recent-requested(int);
     callback explore-requested();
+    callback zoom-in-requested();
+    callback zoom-out-requested();
+    callback zoom-reset-requested();
     callback search-requested(string);
     callback play-requested(int);
     callback playlist-selected(string);
@@ -503,7 +507,7 @@ export component ContentView inherits Rectangle {
         height: 100%;
             vertical-stretch: 1;
             VerticalLayout {
-                spacing: 14px;
+                spacing: root.palette.spacing;
                 padding: 4px;
                 Text {
                     text: @tr("Settings");
@@ -512,69 +516,206 @@ export component ContentView inherits Rectangle {
                     color: root.palette.text;
                 }
 
-                Text { text: @tr("Language"); font-weight: 700; color: root.palette.text; font-size: 14px; }
-                HorizontalLayout { spacing: 8px;
-                    Chip { palette: root.palette; label: "EN"; active: root.ui-language == "en"; clicked => root.language-changed("en"); }
-                    Chip { palette: root.palette; label: "FR"; active: root.ui-language == "fr"; clicked => root.language-changed("fr"); }
-                }
-
-                Text { text: @tr("Theme"); font-weight: 700; color: root.palette.text; font-size: 14px; }
-                HorizontalLayout { spacing: 8px;
-                    Chip { palette: root.palette; label: "Dark"; active: root.theme-id == "breezer-dark"; clicked => root.theme-changed("breezer-dark"); }
-                    Chip { palette: root.palette; label: "Light"; active: root.theme-id == "breezer-light"; clicked => root.theme-changed("breezer-light"); }
-                    Chip { palette: root.palette; label: "AMOLED"; active: root.theme-id == "breezer-amoled"; clicked => root.theme-changed("breezer-amoled"); }
-                }
-
-                Rectangle { height: 1px; background: root.palette.surface2; }
-
-                // Custom colors (theme editor)
+                // --- Appearance -------------------------------------------------
                 Rectangle {
-                    height: 34px;
-                    border-radius: root.palette.radius;
-                    background: root.palette.surface2;
-                    TouchArea {
-                        clicked => { root.show-theme-editor = !root.show-theme-editor; }
-                        mouse-cursor: pointer;
-                    }
-                    Text {
-                        text: @tr("Custom colors");
-                        color: root.palette.text;
-                        font-weight: 600;
-                        horizontal-alignment: center;
-                        vertical-alignment: center;
+                    border-radius: root.palette.radius + 4px;
+                    background: root.palette.surface;
+                    border-width: 1px;
+                    border-color: root.palette.surface2;
+                    VerticalLayout {
+                        padding: 16px;
+                        spacing: 10px;
+                        Text {
+                            text: @tr("Appearance");
+                            font-size: 13px;
+                            font-weight: 700;
+                            color: root.palette.text-secondary;
+                        }
+                        // Theme tiles (mini previews)
+                        HorizontalLayout { spacing: 12px;
+                            Rectangle { width: 96px; height: 74px;
+                                dark-ta := TouchArea { clicked => root.theme-changed("breezer-dark"); mouse-cursor: pointer; }
+                                VerticalLayout { spacing: 6px;
+                                    Rectangle {
+                                        width: 96px; height: 50px; border-radius: root.palette.radius;
+                                        border-width: 2px;
+                                        border-color: root.theme-id == "breezer-dark" ? root.palette.primary : root.palette.surface2;
+                                        // mini window mock
+                                        Rectangle { x: 0px; y: 0px; width: 26px; height: 50px; background: #1a1d24; }
+                                        Rectangle { x: 30px; y: 8px; width: 22px; height: 8px; border-radius: 4px; background: root.palette.primary; }
+                                        Rectangle { x: 30px; y: 20px; width: 56px; height: 22px; border-radius: 5px; background: root.palette.bg; }
+                                    }
+                                    Text { text: "Dark"; font-size: 11px; font-weight: 700;
+                                        color: root.theme-id == "breezer-dark" ? root.palette.primary : root.palette.text;
+                                        horizontal-alignment: center; }
+                                }
+                            }
+                            Rectangle { width: 96px; height: 74px;
+                                light-ta := TouchArea { clicked => root.theme-changed("breezer-light"); mouse-cursor: pointer; }
+                                VerticalLayout { spacing: 6px;
+                                    Rectangle {
+                                        width: 96px; height: 50px; border-radius: root.palette.radius;
+                                        border-width: 2px;
+                                        border-color: root.theme-id == "breezer-light" ? root.palette.primary : root.palette.surface2;
+                                        Rectangle { x: 0px; y: 0px; width: 26px; height: 50px; background: #dfe2e8; }
+                                        Rectangle { x: 30px; y: 8px; width: 22px; height: 8px; border-radius: 4px; background: root.palette.primary; }
+                                        Rectangle { x: 30px; y: 20px; width: 56px; height: 22px; border-radius: 5px; background: root.palette.bg; }
+                                    }
+                                    Text { text: "Light"; font-size: 11px; font-weight: 700;
+                                        color: root.theme-id == "breezer-light" ? root.palette.primary : root.palette.text;
+                                        horizontal-alignment: center; }
+                                }
+                            }
+                            Rectangle { width: 96px; height: 74px;
+                                amoled-ta := TouchArea { clicked => root.theme-changed("breezer-amoled"); mouse-cursor: pointer; }
+                                VerticalLayout { spacing: 6px;
+                                    Rectangle {
+                                        width: 96px; height: 50px; border-radius: root.palette.radius;
+                                        border-width: 2px;
+                                        border-color: root.theme-id == "breezer-amoled" ? root.palette.primary : root.palette.surface2;
+                                        Rectangle { x: 0px; y: 0px; width: 26px; height: 50px; background: #000000; }
+                                        Rectangle { x: 30px; y: 8px; width: 22px; height: 8px; border-radius: 4px; background: root.palette.primary; }
+                                        Rectangle { x: 30px; y: 20px; width: 56px; height: 22px; border-radius: 5px; background: root.palette.bg; }
+                                    }
+                                    Text { text: "AMOLED"; font-size: 11px; font-weight: 700;
+                                        color: root.theme-id == "breezer-amoled" ? root.palette.primary : root.palette.text;
+                                        horizontal-alignment: center; }
+                                }
+                            }
+                        }
+                        Rectangle { height: 1px; background: root.palette.surface2; }
+                        Text { text: @tr("Language"); font-size: 13px; font-weight: 700; color: root.palette.text; }
+                        HorizontalLayout { spacing: 8px;
+                            Chip { palette: root.palette; label: "English"; active: root.ui-language == "en"; clicked => root.language-changed("en"); }
+                            Chip { palette: root.palette; label: "Français"; active: root.ui-language == "fr"; clicked => root.language-changed("fr"); }
+                        }
+                        Rectangle { height: 1px; background: root.palette.surface2; }
+                        Text { text: @tr("UI zoom") + "  (Ctrl + / −)"; font-size: 13px; font-weight: 700; color: root.palette.text; }
+                        HorizontalLayout { spacing: 10px; alignment: center;
+                            Rectangle {
+                                width: 34px; height: 30px; border-radius: root.palette.radius;
+                                background: zta.has-hover ? root.palette.surface2 : root.palette.surface2;
+                                zta := TouchArea { clicked => root.zoom-out-requested(); mouse-cursor: pointer; }
+                                Text { text: "−"; color: root.palette.text; width: 100%; height: 100%;
+                                    horizontal-alignment: center; vertical-alignment: center; font-size: 15px; font-weight: 800; }
+                            }
+                            Text {
+                                text: Math.round(root.ui-zoom * 100.0) + " %";
+                                color: root.palette.text; font-size: 13px; font-weight: 700;
+                                width: 52px; horizontal-alignment: center;
+                            }
+                            Rectangle {
+                                width: 34px; height: 30px; border-radius: root.palette.radius;
+                                background: root.palette.surface2;
+                                zta2 := TouchArea { clicked => root.zoom-in-requested(); mouse-cursor: pointer; }
+                                Text { text: "+"; color: root.palette.text; width: 100%; height: 100%;
+                                    horizontal-alignment: center; vertical-alignment: center; font-size: 15px; font-weight: 800; }
+                            }
+                            SettingsBtn { palette: root.palette; label: @tr("Reset"); clicked => root.zoom-reset-requested(); }
+                        }
                     }
                 }
-                if root.show-theme-editor: VerticalLayout { spacing: 8px;
-                    ColorRow { palette: root.palette; token: "bg"; label: "bg"; hint: @tr("ex: #0f1012"); changed(t, v) => root.theme-override-requested(t, v); }
-                    ColorRow { palette: root.palette; token: "surface"; label: "surface"; hint: @tr("ex: #17181c"); changed(t, v) => root.theme-override-requested(t, v); }
-                    ColorRow { palette: root.palette; token: "surface2"; label: "surface2"; hint: @tr("ex: #1f2127"); changed(t, v) => root.theme-override-requested(t, v); }
-                    ColorRow { palette: root.palette; token: "primary"; label: "primary"; hint: @tr("ex: #a238ff"); changed(t, v) => root.theme-override-requested(t, v); }
-                    ColorRow { palette: root.palette; token: "accent"; label: "accent"; hint: @tr("ex: #2a9d8f"); changed(t, v) => root.theme-override-requested(t, v); }
-                    ColorRow { palette: root.palette; token: "text"; label: "text"; hint: @tr("ex: #f2f3f5"); changed(t, v) => root.theme-override-requested(t, v); }
-                    ColorRow { palette: root.palette; token: "error"; label: "error"; hint: @tr("ex: #e5484d"); changed(t, v) => root.theme-override-requested(t, v); }
-                    ColorRow { palette: root.palette; token: "radius"; label: "radius"; hint: @tr("px, ex: 8"); changed(t, v) => root.theme-override-requested(t, v); }
-                    ColorRow { palette: root.palette; token: "spacing"; label: "spacing"; hint: @tr("px, ex: 12"); changed(t, v) => root.theme-override-requested(t, v); }
-                    Text {
-                        text: @tr("Type a value and press Enter to apply.");
-                        color: root.palette.text-secondary;
-                        font-size: 11px;
+
+                // --- Customization ---------------------------------------------
+                Rectangle {
+                    border-radius: root.palette.radius + 4px;
+                    background: root.palette.surface;
+                    border-width: 1px;
+                    border-color: root.palette.surface2;
+                    VerticalLayout {
+                        padding: 16px;
+                        spacing: 10px;
+                        Text {
+                            text: @tr("Customization");
+                            font-size: 13px;
+                            font-weight: 700;
+                            color: root.palette.text-secondary;
+                        }
+                        Rectangle {
+                            height: 34px;
+                            border-radius: root.palette.radius;
+                            background: root.palette.surface2;
+                            TouchArea {
+                                clicked => { root.show-theme-editor = !root.show-theme-editor; }
+                                mouse-cursor: pointer;
+                            }
+                            Text {
+                                text: @tr("Custom colors");
+                                color: root.palette.text;
+                                font-weight: 600;
+                                horizontal-alignment: center;
+                                vertical-alignment: center;
+                            }
+                        }
+                        if root.show-theme-editor: VerticalLayout { spacing: 8px;
+                            ColorRow { palette: root.palette; token: "bg"; label: "bg"; hint: @tr("ex: #0f1012"); changed(t, v) => root.theme-override-requested(t, v); }
+                            ColorRow { palette: root.palette; token: "surface"; label: "surface"; hint: @tr("ex: #17181c"); changed(t, v) => root.theme-override-requested(t, v); }
+                            ColorRow { palette: root.palette; token: "surface2"; label: "surface2"; hint: @tr("ex: #1f2127"); changed(t, v) => root.theme-override-requested(t, v); }
+                            ColorRow { palette: root.palette; token: "primary"; label: "primary"; hint: @tr("ex: #a238ff"); changed(t, v) => root.theme-override-requested(t, v); }
+                            ColorRow { palette: root.palette; token: "accent"; label: "accent"; hint: @tr("ex: #2a9d8f"); changed(t, v) => root.theme-override-requested(t, v); }
+                            ColorRow { palette: root.palette; token: "text"; label: "text"; hint: @tr("ex: #f2f3f5"); changed(t, v) => root.theme-override-requested(t, v); }
+                            ColorRow { palette: root.palette; token: "error"; label: "error"; hint: @tr("ex: #e5484d"); changed(t, v) => root.theme-override-requested(t, v); }
+                            ColorRow { palette: root.palette; token: "radius"; label: "radius"; hint: @tr("px, ex: 8"); changed(t, v) => root.theme-override-requested(t, v); }
+                            ColorRow { palette: root.palette; token: "spacing"; label: "spacing"; hint: @tr("px, ex: 12"); changed(t, v) => root.theme-override-requested(t, v); }
+                            Text {
+                                text: @tr("Type a value and press Enter to apply.");
+                                color: root.palette.text-secondary;
+                                font-size: 11px;
+                            }
+                            SettingsBtn { palette: root.palette; label: @tr("Reset custom colors"); clicked => root.reset-theme-overrides-requested(); }
+                        }
                     }
-                    SettingsBtn { palette: root.palette; label: @tr("Reset custom colors"); clicked => root.reset-theme-overrides-requested(); }
                 }
 
-                Rectangle { height: 1px; background: root.palette.surface2; }
-
-                Text { text: @tr("Layout"); font-weight: 700; color: root.palette.text; font-size: 14px; }
-                HorizontalLayout { spacing: 8px;
-                    SettingsBtn { palette: root.palette; label: @tr("Show queue"); clicked => root.toggle-right-panel-requested(); }
-                    SettingsBtn { palette: root.palette; label: @tr("Save layout"); clicked => root.save-layout-requested(); }
-                    SettingsBtn { palette: root.palette; label: @tr("Reset layout"); clicked => root.reset-layout-requested(); }
+                // --- Layout -----------------------------------------------------
+                Rectangle {
+                    border-radius: root.palette.radius + 4px;
+                    background: root.palette.surface;
+                    border-width: 1px;
+                    border-color: root.palette.surface2;
+                    VerticalLayout {
+                        padding: 16px;
+                        spacing: 10px;
+                        Text {
+                            text: @tr("Layout");
+                            font-size: 13px;
+                            font-weight: 700;
+                            color: root.palette.text-secondary;
+                        }
+                        HorizontalLayout { spacing: 8px;
+                            SettingsBtn { palette: root.palette; label: @tr("Show queue"); clicked => root.toggle-right-panel-requested(); }
+                            SettingsBtn { palette: root.palette; label: @tr("Save layout"); clicked => root.save-layout-requested(); }
+                            SettingsBtn { palette: root.palette; label: @tr("Reset layout"); clicked => root.reset-layout-requested(); }
+                        }
+                    }
                 }
 
-                Text {
-                    text: @tr("Breezer v0.1 — AGPL-3.0");
-                    color: root.palette.text-secondary;
-                    font-size: 11px;
+                // --- About ------------------------------------------------------
+                Rectangle {
+                    border-radius: root.palette.radius + 4px;
+                    background: root.palette.surface;
+                    border-width: 1px;
+                    border-color: root.palette.surface2;
+                    VerticalLayout {
+                        padding: 16px;
+                        spacing: 6px;
+                        Text {
+                            text: @tr("About");
+                            font-size: 13px;
+                            font-weight: 700;
+                            color: root.palette.text-secondary;
+                        }
+                        Text {
+                            text: @tr("Breezer v0.1 — AGPL-3.0");
+                            color: root.palette.text;
+                            font-weight: 600;
+                        }
+                        Text {
+                            text: @tr("Independent client, not affiliated with Deezer.");
+                            color: root.palette.text-secondary;
+                            font-size: 12px;
+                        }
+                    }
                 }
             }
         }

@@ -83,6 +83,7 @@ component DockShell inherits Rectangle {
     in property <string> ui-language;
     in property <string> version-status;
     in property <string> update-ready;
+    in property <float> ui-zoom;
     in property <int> queue-index;
 
     in property <string> left-panel;
@@ -233,11 +234,15 @@ component DockShell inherits Rectangle {
                     username: root.username;
                     current-track: root.current-track;
                     playing: root.playing;
+                    ui-zoom: root.ui-zoom;
                     search-requested(q) => root.search-requested(q);
                     play-requested(id) => root.play-requested(id);
                     playlist-selected(id) => root.playlist-selected(id);
                     play-recent-requested(id) => root.play-recent-requested(id);
                     explore-requested => root.explore-requested();
+                    zoom-in-requested => root.zoom-in-requested();
+                    zoom-out-requested => root.zoom-out-requested();
+                    zoom-reset-requested => root.zoom-reset-requested();
                     toggle-requested => root.toggle-requested();
                     back-requested => root.back-requested();
                     theme-changed(s) => root.theme-changed(s);
@@ -442,6 +447,7 @@ export component MainWindow inherits Window {
     in property <string> ui-language;
     in property <string> version-status;
     in property <string> update-ready;
+    in property <float> ui-zoom;
 
     // onboarding (first launch)
     in property <bool> onboarding-visible;
@@ -515,6 +521,7 @@ export component MainWindow inherits Window {
         ui-language <=> root.ui-language;
         version-status <=> root.version-status;
         update-ready <=> root.update-ready;
+        ui-zoom <=> root.ui-zoom;
 
         search-requested(q) => root.search-requested(q);
         connect-requested(arl) => root.connect-requested(arl);

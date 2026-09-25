@@ -18,6 +18,7 @@ use crate::player::{Engine, PlayQueue};
 use crate::plugins::PluginRegistry;
 use crate::{MainWindow, Palette as UiPalette, TrackInfo};
 use slint::{ComponentHandle, ModelRc, SharedString, VecModel};
+use std::sync::{Arc, Mutex};
 use tokio::sync::mpsc;
 
 // ---------------------------------------------------------------------------
@@ -172,6 +173,7 @@ enum Evt {
     Recents(Vec<TrackCard>),
     UpdateReady(String),
     Zoom(f32),
+    ZoomChanged(f32),
     OnboardingDone,
 }
 
@@ -415,6 +417,7 @@ fn run_gui() -> Result<()> {
     window.set_shuffle_on(false);
     window.set_repeat_mode(0);
     window.set_update_ready(SharedString::from(""));
+    window.set_ui_zoom(cfg.zoom);
     window.set_onboard_status(SharedString::from(""));
     let onboarding_seen = cfg.onboarding_done;
     window.set_onboarding_visible(!onboarding_seen && !already_connected);
@@ -581,7 +584,10 @@ fn run_gui() -> Result<()> {
             let mut api = ApiClient::from_config(&cfg)?;
             let mut player = Engine::new();
             let mut queue: PlayQueue<TrackCard> = PlayQueue::new();
-            let mut playlists_cache: Vec<PlaylistCard> = Vec::new();
+            let playlists_cache: Arc<Mutex<Vec<PlaylistCard>>> = Arc::new(Mutex::new(Vec::new()));
+            // Downloads + decryption happen off-loop; finished bytes come back
+            // through this channel so navigation never blocks on stream buffering.
+            let (stream_tx, mut stream_rx) = mpsc::channel::<(TrackCard, Vec<u8>)>(16);
 
             // session_id + license_token are session-scoped (not persisted):
             // re-validate the stored ARL at startup to refresh them.
@@ -628,29 +634,42 @@ fn run_gui() -> Result<()> {
                             Err(e) => log::debug!("last played unavailable: {e}"),
                         }
 
-                        // Pre-load the playlists list for the sidebar.
-                        if playlists_cache.is_empty() {
-                            match api.playlists().await {
-                                Ok(list) => {
-                                    let urls: Vec<String> = list
-                                        .iter()
-                                        .map(|p| playlist_cover_url(&p.picture_hash))
-                                        .collect();
-                                    covers.ensure(&urls).await;
-                                    playlists_cache = list
-                                        .into_iter()
-                                        .map(|p| PlaylistCard {
-                                            id: p.id.to_string(),
-                                            title: p.title,
-                                            cover_url: playlist_cover_url(&p.picture_hash),
-                                        })
-                                        .collect();
-                                    let _ = evt_tx2
-                                        .send(Evt::Playlists(playlists_cache.clone()))
-                                        .await;
+                        // Pre-load the playlists list for the sidebar (background task).
+                        if playlists_cache
+                            .lock()
+                            .map(|g| g.is_empty())
+                            .unwrap_or(true)
+                        {
+                            let api2 = api.clone();
+                            let covers2 = covers.clone();
+                            let tx = evt_tx2.clone();
+                            let pc = playlists_cache.clone();
+                            tokio::spawn(async move {
+                                match api2.playlists().await {
+                                    Ok(list) => {
+                                        let urls: Vec<String> = list
+                                            .iter()
+                                            .map(|p| playlist_cover_url(&p.picture_hash))
+                                            .collect();
+                                        covers2.ensure(&urls).await;
+                                        let cards: Vec<PlaylistCard> = list
+                                            .into_iter()
+                                            .map(|p| PlaylistCard {
+                                                id: p.id.to_string(),
+                                                title: p.title,
+                                                cover_url: playlist_cover_url(&p.picture_hash),
+                                            })
+                                            .collect();
+                                        if let Ok(mut g) = pc.lock() {
+                                            *g = cards;
+                                        }
+                                        let snapshot =
+                                            pc.lock().map(|g| g.clone()).unwrap_or_default();
+                                        let _ = tx.send(Evt::Playlists(snapshot)).await;
+                                    }
+                                    Err(e) => log::debug!("playlists prefetch failed: {e}"),
                                 }
-                                Err(e) => log::debug!("playlists prefetch failed: {e}"),
-                            }
+                            });
                         }
                     }
                     Err(e) => {
@@ -664,62 +683,83 @@ fn run_gui() -> Result<()> {
 
             let mut layout = layout;
             let plugins = PluginRegistry::with_system();
-            let mut last_cards: Vec<TrackCard> = Vec::new();
-            let mut recent_cards: Vec<TrackCard> = Vec::new();
+            let last_cards: Arc<Mutex<Vec<TrackCard>>> = Arc::new(Mutex::new(Vec::new()));
+            let recent_cards: Arc<Mutex<Vec<TrackCard>>> = Arc::new(Mutex::new(Vec::new()));
             let mut shuffle_on = false;
             let mut repeat_mode = RepeatMode::Off;
 
-            // Seed the Home page with Deezer's trending tracks (public chart).
-            match api.chart(24).await {
-                Ok(tracks) => {
-                    let urls: Vec<String> = tracks
-                        .iter()
-                        .map(|t| t.album.cover_medium.clone())
-                        .collect();
-                    covers.ensure(&urls).await;
-                    let cards: Vec<TrackCard> = tracks
-                        .into_iter()
-                        .map(|t| TrackCard {
-                            id: t.id as i32,
-                            title: t.title,
-                            artist: t.artist.name,
-                            album: t.album.title,
-                            cover_url: t.album.cover_medium,
-                            duration: t.duration as f32,
-                        })
-                        .collect();
-                    last_cards = cards.clone();
-                    let _ = evt_tx2.send(Evt::Results(cards)).await;
-                    let _ = evt_tx2.send(Evt::Status(String::new())).await;
-                }
-                Err(e) => log::debug!("chart prefetch failed: {e}"),
+            // Seed the Home page with Deezer's trending tracks (public chart),
+            // in the background so the UI is responsive from the start.
+            {
+                let api2 = api.clone();
+                let covers2 = covers.clone();
+                let tx = evt_tx2.clone();
+                let lc = last_cards.clone();
+                tokio::spawn(async move {
+                    match api2.chart(24).await {
+                        Ok(tracks) => {
+                            let urls: Vec<String> = tracks
+                                .iter()
+                                .map(|t| t.album.cover_medium.clone())
+                                .collect();
+                            covers2.ensure(&urls).await;
+                            let cards: Vec<TrackCard> = tracks
+                                .into_iter()
+                                .map(|t| TrackCard {
+                                    id: t.id as i32,
+                                    title: t.title,
+                                    artist: t.artist.name,
+                                    album: t.album.title,
+                                    cover_url: t.album.cover_medium,
+                                    duration: t.duration as f32,
+                                })
+                                .collect();
+                            if let Ok(mut g) = lc.lock() {
+                                *g = cards.clone();
+                            }
+                            let _ = tx.send(Evt::Results(cards)).await;
+                            let _ = tx.send(Evt::Status(String::new())).await;
+                        }
+                        Err(e) => log::debug!("chart prefetch failed: {e}"),
+                    }
+                });
             }
 
-            // Home page "Recently played" shelf: the full listening history
-            // (newest first), so the first shelf is not limited to one track.
-            match api.recent_played(12).await {
-                Ok(recent) => {
-                    let urls: Vec<String> = recent
-                        .iter()
-                        .map(|t| t.album.cover_medium.clone())
-                        .collect();
-                    covers.ensure(&urls).await;
-                    recent_cards = recent
-                        .into_iter()
-                        .map(|t| TrackCard {
-                            id: t.id as i32,
-                            title: t.title,
-                            artist: t.artist.name,
-                            album: t.album.title,
-                            cover_url: t.album.cover_medium,
-                            duration: t.duration as f32,
-                        })
-                        .collect();
-                    if !recent_cards.is_empty() {
-                        let _ = evt_tx2.send(Evt::Recents(recent_cards.clone())).await;
+            // Home page "Recently played" shelf (background task).
+            {
+                let api2 = api.clone();
+                let covers2 = covers.clone();
+                let tx = evt_tx2.clone();
+                let rc = recent_cards.clone();
+                tokio::spawn(async move {
+                    match api2.recent_played(12).await {
+                        Ok(recent) => {
+                            let urls: Vec<String> = recent
+                                .iter()
+                                .map(|t| t.album.cover_medium.clone())
+                                .collect();
+                            covers2.ensure(&urls).await;
+                            let cards: Vec<TrackCard> = recent
+                                .into_iter()
+                                .map(|t| TrackCard {
+                                    id: t.id as i32,
+                                    title: t.title,
+                                    artist: t.artist.name,
+                                    album: t.album.title,
+                                    cover_url: t.album.cover_medium,
+                                    duration: t.duration as f32,
+                                })
+                                .collect();
+                            if let Ok(mut g) = rc.lock() {
+                                *g = cards.clone();
+                            }
+                            if !cards.is_empty() {
+                                let _ = tx.send(Evt::Recents(cards)).await;
+                            }
+                        }
+                        Err(e) => log::debug!("recent history prefetch failed: {e}"),
                     }
-                }
-                Err(e) => log::debug!("recent history prefetch failed: {e}"),
+                });
             }
 
             let _ = evt_tx2.send(Evt::PlayerEnabled(player.has_device())).await;
@@ -733,53 +773,71 @@ fn run_gui() -> Result<()> {
                     Cmd::Search(q) => {
                         covers.clear();
                         let _ = evt_tx2.send(Evt::Status(i18n.t("search.loading"))).await;
-                        match api.search_tracks(&q, 24).await {
-                            Ok(tracks) => {
-                                let urls: Vec<String> = tracks
-                                    .iter()
-                                    .map(|t| t.album.cover_medium.clone())
-                                    .collect();
-                                covers.ensure(&urls).await;
+                        // Off-loop fetch: navigation stays responsive while the
+                        // search request is in flight.
+                        let api2 = api.clone();
+                        let covers2 = covers.clone();
+                        let tx = evt_tx2.clone();
+                        let lc = last_cards.clone();
+                        let empty_msg = i18n.t("search.empty");
+                        let results_tpl = i18n.t_args(
+                            "search.results",
+                            &[("count", "{count}"), ("query", "{query}")],
+                        );
+                        let error_tpl = i18n.t_args("search.error", &[("error", "{error}")]);
+                        let explore_title = i18n.t("nav.explore");
+                        tokio::spawn(async move {
+                            match api2.search_tracks(&q, 24).await {
+                                Ok(tracks) => {
+                                    let urls: Vec<String> = tracks
+                                        .iter()
+                                        .map(|t| t.album.cover_medium.clone())
+                                        .collect();
+                                    covers2.ensure(&urls).await;
 
-                                let cards: Vec<TrackCard> = tracks
-                                    .into_iter()
-                                    .map(|t| TrackCard {
-                                        id: t.id as i32,
-                                        title: t.title,
-                                        artist: t.artist.name,
-                                        album: t.album.title,
-                                        cover_url: t.album.cover_medium,
-                                        duration: t.duration as f32,
-                                    })
-                                    .collect();
-                                last_cards = cards.clone();
-                                let _ = evt_tx2.send(Evt::Results(cards)).await;
-                                let msg = if last_cards.is_empty() {
-                                    i18n.t("search.empty")
-                                } else {
-                                    i18n.t_args(
-                                        "search.results",
-                                        &[("count", &last_cards.len().to_string()), ("query", &q)],
-                                    )
-                                };
-                                let _ = evt_tx2.send(Evt::Status(msg)).await;
-                                // Searching opens the results shelf (Explorer),
-                                // like Deezer — Home keeps its curated shelves.
-                                if !last_cards.is_empty() {
-                                    let _ = evt_tx2
-                                        .send(Evt::View {
-                                            view: "explore".into(),
-                                            title: i18n.t("nav.explore"),
+                                    let cards: Vec<TrackCard> = tracks
+                                        .into_iter()
+                                        .map(|t| TrackCard {
+                                            id: t.id as i32,
+                                            title: t.title,
+                                            artist: t.artist.name,
+                                            album: t.album.title,
+                                            cover_url: t.album.cover_medium,
+                                            duration: t.duration as f32,
                                         })
+                                        .collect();
+                                    let n = cards.len();
+                                    if let Ok(mut g) = lc.lock() {
+                                        *g = cards.clone();
+                                    }
+                                    let _ = tx.send(Evt::Results(cards)).await;
+                                    let msg = if n == 0 {
+                                        empty_msg
+                                    } else {
+                                        results_tpl
+                                            .replace("{count}", &n.to_string())
+                                            .replace("{query}", &q)
+                                    };
+                                    let _ = tx.send(Evt::Status(msg)).await;
+                                    // Searching opens the results shelf (Explorer),
+                                    // like Deezer — Home keeps its curated shelves.
+                                    if n > 0 {
+                                        let _ = tx
+                                            .send(Evt::View {
+                                                view: "explore".into(),
+                                                title: explore_title,
+                                            })
+                                            .await;
+                                    }
+                                }
+                                Err(e) => {
+                                    log::warn!("search failed: {e}");
+                                    let _ = tx
+                                        .send(Evt::Status(error_tpl.replace("{error}", &e.to_string())))
                                         .await;
                                 }
                             }
-                            Err(e) => {
-                                log::warn!("search failed: {e}");
-                                let msg = i18n.t_args("search.error", &[("error", &e.to_string())]);
-                                let _ = evt_tx2.send(Evt::Status(msg)).await;
-                            }
-                        }
+                        });
                     }
 
                     Cmd::Connect(arl) => {
@@ -849,78 +907,118 @@ fn run_gui() -> Result<()> {
 
                         // Fetch the user's playlists when entering the view
                         // (cached afterwards — the "back" button reuses it).
-                        if v == "playlists" && playlists_cache.is_empty() && api.is_authenticated() {
-                            match api.playlists().await {
-                                Ok(list) => {
-                                    let urls: Vec<String> =
-                                        list.iter().map(|p| playlist_cover_url(&p.picture_hash)).collect();
-                                    covers.ensure(&urls).await;
-                                    playlists_cache = list
-                                        .into_iter()
-                                        .map(|p| PlaylistCard {
-                                            id: p.id.to_string(),
-                                            title: p.title,
-                                            cover_url: playlist_cover_url(&p.picture_hash),
-                                        })
-                                        .collect();
-                                    let _ = evt_tx2.send(Evt::Playlists(playlists_cache.clone())).await;
+                        if v == "playlists"
+                            && playlists_cache
+                                .lock()
+                                .map(|g| g.is_empty())
+                                .unwrap_or(true)
+                            && api.is_authenticated()
+                        {
+                            let api2 = api.clone();
+                            let covers2 = covers.clone();
+                            let tx = evt_tx2.clone();
+                            let pc = playlists_cache.clone();
+                            let error_tpl = i18n.t_args("playlists.error", &[("error", "{error}")]);
+                            tokio::spawn(async move {
+                                match api2.playlists().await {
+                                    Ok(list) => {
+                                        let urls: Vec<String> = list
+                                            .iter()
+                                            .map(|p| playlist_cover_url(&p.picture_hash))
+                                            .collect();
+                                        covers2.ensure(&urls).await;
+                                        let cards: Vec<PlaylistCard> = list
+                                            .into_iter()
+                                            .map(|p| PlaylistCard {
+                                                id: p.id.to_string(),
+                                                title: p.title,
+                                                cover_url: playlist_cover_url(&p.picture_hash),
+                                            })
+                                            .collect();
+                                        if let Ok(mut g) = pc.lock() {
+                                            *g = cards;
+                                        }
+                                        let snapshot =
+                                            pc.lock().map(|g| g.clone()).unwrap_or_default();
+                                        let _ = tx.send(Evt::Playlists(snapshot)).await;
+                                    }
+                                    Err(e) => {
+                                        log::warn!("playlists fetch failed: {e}");
+                                        let _ = tx
+                                            .send(Evt::Status(
+                                                error_tpl.replace("{error}", &e.to_string()),
+                                            ))
+                                            .await;
+                                    }
                                 }
-                                Err(e) => {
-                                    log::warn!("playlists fetch failed: {e}");
-                                    let _ = evt_tx2
-                                        .send(Evt::Status(
-                                            i18n.t_args("playlists.error", &[("error", &e.to_string())]),
-                                        )).await;
-                                }
-                            }
+                            });
                         }
                     }
 
                     Cmd::PlaylistSelected(pid) => {
                         let title = playlists_cache
-                            .iter()
-                            .find(|p| p.id == pid)
-                            .map(|p| p.title.clone())
-                            .unwrap_or_else(|| i18n.t("nav.playlists"));
-                        match api.playlist_tracks(&pid).await {
-                            Ok(tracks) => {
-                                let urls: Vec<String> = tracks
-                                    .iter()
-                                    .map(|t| t.album.cover_medium.clone())
-                                    .collect();
-                                covers.ensure(&urls).await;
-                                let cards: Vec<TrackCard> = tracks
-                                    .into_iter()
-                                    .map(|t| TrackCard {
-                                        id: t.id as i32,
-                                        title: t.title,
-                                        artist: t.artist.name,
-                                        album: t.album.title,
-                                        cover_url: t.album.cover_medium,
-                                        duration: t.duration as f32,
-                                    })
-                                    .collect();
-                                let count = cards.len();
-                                last_cards = cards.clone();
-                                let _ = evt_tx2
-                                    .send(Evt::View { view: "playlist-detail".into(), title })
-                                    .await;
-                                let _ = evt_tx2.send(Evt::Results(cards)).await;
-                                let _ = evt_tx2
-                                    .send(Evt::Status(
-                                        i18n.t_args("playlist.tracks", &[("count", &count.to_string())]),
-                                    ))
-                                    .await;
+                            .lock()
+                            .map(|g| {
+                                g.iter()
+                                    .find(|p| p.id == pid)
+                                    .map(|p| p.title.clone())
+                                    .unwrap_or_else(|| i18n.t("nav.playlists"))
+                            })
+                            .unwrap_or_else(|_| i18n.t("nav.playlists"));
+                        let api2 = api.clone();
+                        let covers2 = covers.clone();
+                        let tx = evt_tx2.clone();
+                        let lc = last_cards.clone();
+                        let count_tpl =
+                            i18n.t_args("playlist.tracks", &[("count", "{count}")]);
+                        let error_tpl =
+                            i18n.t_args("playlist.tracks.error", &[("error", "{error}")]);
+                        tokio::spawn(async move {
+                            match api2.playlist_tracks(&pid).await {
+                                Ok(tracks) => {
+                                    let urls: Vec<String> = tracks
+                                        .iter()
+                                        .map(|t| t.album.cover_medium.clone())
+                                        .collect();
+                                    covers2.ensure(&urls).await;
+                                    let cards: Vec<TrackCard> = tracks
+                                        .into_iter()
+                                        .map(|t| TrackCard {
+                                            id: t.id as i32,
+                                            title: t.title,
+                                            artist: t.artist.name,
+                                            album: t.album.title,
+                                            cover_url: t.album.cover_medium,
+                                            duration: t.duration as f32,
+                                        })
+                                        .collect();
+                                    let count = cards.len();
+                                    if let Ok(mut g) = lc.lock() {
+                                        *g = cards.clone();
+                                    }
+                                    let _ = tx
+                                        .send(Evt::View {
+                                            view: "playlist-detail".into(),
+                                            title,
+                                        })
+                                        .await;
+                                    let _ = tx.send(Evt::Results(cards)).await;
+                                    let _ = tx
+                                        .send(Evt::Status(
+                                            count_tpl.replace("{count}", &count.to_string()),
+                                        ))
+                                        .await;
+                                }
+                                Err(e) => {
+                                    log::warn!("playlist tracks failed: {e}");
+                                    let _ = tx
+                                        .send(Evt::Status(
+                                            error_tpl.replace("{error}", &e.to_string()),
+                                        ))
+                                        .await;
+                                }
                             }
-                            Err(e) => {
-                                log::warn!("playlist tracks failed: {e}");
-                                let _ = evt_tx2
-                                    .send(Evt::Status(
-                                        i18n.t_args("playlist.tracks.error", &[("error", &e.to_string())]),
-                                    ))
-                                    .await;
-                            }
-                        }
+                        });
                     }
 
                     Cmd::Play(id) => {
@@ -934,11 +1032,13 @@ fn run_gui() -> Result<()> {
                             &evt_tx2,
                             &i18n,
                             &plugins,
+                            &stream_tx,
                         )
                         .await;
                     }
                     Cmd::PlayIndex(i) => {
-                        if let Some(card) = last_cards.get(i) {
+                        let card = last_cards.lock().ok().and_then(|g| g.get(i).cloned());
+                        if let Some(card) = card {
                             play_card(
                                 &last_cards,
                                 card.id as u64,
@@ -949,12 +1049,15 @@ fn run_gui() -> Result<()> {
                                 &evt_tx2,
                                 &i18n,
                                 &plugins,
+                                &stream_tx,
                             )
                             .await;
                         }
                     }
                     Cmd::PlayRecent(id) => {
-                        if recent_cards.iter().any(|c| c.id == id) {
+                        let found =
+                            recent_cards.lock().map(|g| g.iter().any(|c| c.id == id)).unwrap_or(false);
+                        if found {
                             play_card(
                                 &recent_cards,
                                 id as u64,
@@ -965,6 +1068,7 @@ fn run_gui() -> Result<()> {
                                 &evt_tx2,
                                 &i18n,
                                 &plugins,
+                                &stream_tx,
                             )
                             .await;
                         }
@@ -975,7 +1079,8 @@ fn run_gui() -> Result<()> {
                             // Nothing decoded yet — (re)start the current track
                             // (e.g. the "last played" loaded at boot).
                             if let Some(card) = queue.current().cloned() {
-                                start_streaming(card, &mut player, &api, &evt_tx2, &i18n).await;
+                                start_streaming(card, &mut player, &api, &evt_tx2, &i18n, &stream_tx)
+                                    .await;
                             }
                         } else {
                             player.toggle();
@@ -985,7 +1090,8 @@ fn run_gui() -> Result<()> {
                     Cmd::Prev => {
                         if let Some(card) = queue.prev().cloned() {
                             let _ = evt_tx2.send(Evt::TrackChanged(card.clone())).await;
-                            start_streaming(card, &mut player, &api, &evt_tx2, &i18n).await;
+                            start_streaming(card, &mut player, &api, &evt_tx2, &i18n, &stream_tx)
+                                .await;
                         }
                     }
                     Cmd::Next => {
@@ -998,6 +1104,7 @@ fn run_gui() -> Result<()> {
                             &api,
                             &evt_tx2,
                             &i18n,
+                            &stream_tx,
                         )
                         .await;
                     }
@@ -1170,6 +1277,20 @@ fn run_gui() -> Result<()> {
                     }
                 }
                     }
+                    Some((_card, bytes)) = stream_rx.recv() => {
+                        // A buffered stream is ready — feed it to the audio
+                        // engine (off the fetch path: navigation stays snappy).
+                        match player.play_mp3_bytes(bytes) {
+                            Ok(()) => {
+                                let _ = evt_tx2.send(Evt::Playing(true)).await;
+                            }
+                            Err(e) => {
+                                let msg =
+                                    i18n.t_args("player.stream.error", &[("error", &e.to_string())]);
+                                let _ = evt_tx2.send(Evt::Status(msg)).await;
+                            }
+                        }
+                    }
                     _ = tick.tick() => {
                         // Progress reporter: keep the slider + elapsed label in
                         // sync while playing, and auto-advance on track end.
@@ -1191,6 +1312,7 @@ fn run_gui() -> Result<()> {
                                     &api,
                                     &evt_tx2,
                                     &i18n,
+                                    &stream_tx,
                                 )
                                 .await;
                             }
@@ -1294,6 +1416,7 @@ async fn zoom_cmd(cfg: &mut Config, evt_tx: &mpsc::Sender<Evt>, step: f32) {
         log::warn!("could not save config: {e}");
     }
     let _ = evt_tx.send(Evt::Zoom(ratio)).await;
+    let _ = evt_tx.send(Evt::ZoomChanged(new)).await;
     let _ = evt_tx
         .send(Evt::Theme {
             id: cfg.theme_id.clone(),
@@ -1319,10 +1442,11 @@ fn playlist_cover_url(hash: &str) -> String {
     }
 }
 
-/// Queue + start a track.
+/// Queue + start a track. The fetch/decrypt part runs off-loop (see
+/// `request_stream`), so this returns almost immediately.
 #[allow(clippy::too_many_arguments)]
 async fn play_card(
-    cards: &[TrackCard],
+    cards: &Arc<Mutex<Vec<TrackCard>>>,
     id: u64,
     player: &mut Engine,
     api: &ApiClient,
@@ -1331,14 +1455,22 @@ async fn play_card(
     evt_tx: &mpsc::Sender<Evt>,
     i18n: &I18n,
     plugins: &PluginRegistry,
+    stream_tx: &mpsc::Sender<(TrackCard, Vec<u8>)>,
 ) {
-    let Some(pos) = cards.iter().position(|c| c.id as u64 == id) else {
-        return;
+    let (pos, card) = {
+        let g = match cards.lock() {
+            Ok(g) => g,
+            Err(_) => return,
+        };
+        match g.iter().position(|c| c.id as u64 == id) {
+            Some(p) => (p, g[p].clone()),
+            None => return,
+        }
     };
-    let card = cards[pos].clone();
 
     let _ = evt_tx.send(Evt::TrackChanged(card.clone())).await;
-    queue.set_tracks(cards.to_vec(), pos);
+    let snapshot = cards.lock().map(|g| g.clone()).unwrap_or_default();
+    queue.set_tracks(snapshot, pos);
     plugins.notify_track(&breezer_plugin_api::TrackMeta {
         id: card.id as i64,
         title: card.title.clone(),
@@ -1352,7 +1484,7 @@ async fn play_card(
             .await;
         return;
     }
-    start_streaming(card, player, api, evt_tx, i18n).await;
+    start_streaming(card, player, api, evt_tx, i18n, stream_tx).await;
 }
 
 /// Full Deezer streaming flow (mirroring the tui-dzr client):
@@ -1364,49 +1496,55 @@ async fn start_streaming(
     api: &ApiClient,
     evt_tx: &mpsc::Sender<Evt>,
     i18n: &I18n,
+    stream_tx: &mpsc::Sender<(TrackCard, Vec<u8>)>,
 ) {
     if !player.has_device() {
         let _ = evt_tx.send(Evt::Status(i18n.t("player.no.device"))).await;
         return;
     }
     let _ = evt_tx.send(Evt::Status(i18n.t("player.streaming"))).await;
-    let encrypted = match api.stream_encrypted_mp3(card.id as u64).await {
-        Ok(b) => b,
-        Err(e) => {
-            log::warn!("streaming fetch failed: {e}");
-            let _ = evt_tx
-                .send(Evt::Status(
-                    i18n.t_args("player.stream.error", &[("error", &e.to_string())]),
-                ))
-                .await;
-            return;
-        }
-    };
-    let decrypted =
-        match crate::player::decrypt::decrypt_audio_stream(&card.id.to_string(), &encrypted) {
-            Ok(d) => d,
+    let error_tpl = i18n.t_args("player.stream.error", &[("error", "{error}")]);
+    request_stream(card, api, stream_tx.clone(), evt_tx.clone(), &error_tpl);
+}
+
+/// Fetch + decrypt a track off the services loop. The finished bytes come back
+/// on `stream_tx`, where the loop feeds them to the audio engine — navigation
+/// and other clicks never wait on stream buffering.
+fn request_stream(
+    card: TrackCard,
+    api: &ApiClient,
+    stream_tx: mpsc::Sender<(TrackCard, Vec<u8>)>,
+    evt_tx: mpsc::Sender<Evt>,
+    error_tpl: &str,
+) {
+    let api = api.clone();
+    let tx = stream_tx.clone();
+    let et = evt_tx.clone();
+    let err = error_tpl.to_string();
+    tokio::spawn(async move {
+        let encrypted = match api.stream_encrypted_mp3(card.id as u64).await {
+            Ok(b) => b,
             Err(e) => {
-                log::warn!("stream decryption failed: {e}");
-                let _ = evt_tx
-                    .send(Evt::Status(
-                        i18n.t_args("player.stream.error", &[("error", &e.to_string())]),
-                    ))
+                log::warn!("streaming fetch failed: {e}");
+                let _ = et
+                    .send(Evt::Status(err.replace("{error}", &e.to_string())))
                     .await;
                 return;
             }
         };
-    match player.play_mp3_bytes(decrypted) {
-        Ok(()) => {
-            let _ = evt_tx.send(Evt::Playing(true)).await;
-        }
-        Err(e) => {
-            let _ = evt_tx
-                .send(Evt::Status(
-                    i18n.t_args("player.stream.error", &[("error", &e.to_string())]),
-                ))
-                .await;
-        }
-    }
+        let decrypted =
+            match crate::player::decrypt::decrypt_audio_stream(&card.id.to_string(), &encrypted) {
+                Ok(d) => d,
+                Err(e) => {
+                    log::warn!("stream decryption failed: {e}");
+                    let _ = et
+                        .send(Evt::Status(err.replace("{error}", &e.to_string())))
+                        .await;
+                    return;
+                }
+            };
+        let _ = tx.send((card, decrypted)).await;
+    });
 }
 
 /// Advance to the next queued track respecting shuffle / repeat preferences.
@@ -1423,6 +1561,7 @@ async fn advance_playback(
     api: &ApiClient,
     evt_tx: &mpsc::Sender<Evt>,
     i18n: &I18n,
+    stream_tx: &mpsc::Sender<(TrackCard, Vec<u8>)>,
 ) -> bool {
     let len = queue.len();
     let card = if len == 0 {
@@ -1447,7 +1586,7 @@ async fn advance_playback(
     match card {
         Some(c) => {
             let _ = evt_tx.send(Evt::TrackChanged(c.clone())).await;
-            start_streaming(c, player, api, evt_tx, i18n).await;
+            start_streaming(c, player, api, evt_tx, i18n, stream_tx).await;
             true
         }
         None => {
@@ -1480,6 +1619,7 @@ fn apply_event(ui: &MainWindow, evt: Evt, covers: &Covers) {
             let h = size.height as f32 * ratio;
             ui.window().set_size(slint::LogicalSize::new(w, h));
         }
+        Evt::ZoomChanged(v) => ui.set_ui_zoom(v),
         Evt::Playlists(cards) => {
             let items: Vec<crate::PlaylistInfo> = cards
                 .iter()
