@@ -22,14 +22,15 @@ export global DockBridge {
 }
 
 // A dockable panel wrapper (no drag banner — panels are placed via the layout
-// manager, saving vertical space).
+// manager, saving vertical space). Fills the slot it lives in.
 component DockFrame inherits Rectangle {
     in-out property <string> panel-kind;
     in property <Palette> palette;
     out property <bool> dragging: false;
 
-    Rectangle {
-        vertical-stretch: 1;
+    VerticalLayout {
+        width: 100%;
+        height: 100%;
         @children
     }
 }
@@ -135,8 +136,12 @@ component DockShell inherits Rectangle {
                 left-frame := DockFrame {
                     panel-kind: root.left-panel == "sidebar" ? "sidebar" : "queue";
                     palette: root.palette;
+                    width: 100%;
+                    height: 100%;
                     Sidebar {
                         visible: root.left-panel == "sidebar";
+                        width: 100%;
+                        height: 100%;
                         palette: root.palette;
                         username: root.username;
                         auth-state: root.auth-state;
@@ -150,6 +155,8 @@ component DockShell inherits Rectangle {
                     }
                     QueuePanel {
                         visible: root.left-panel == "queue";
+                        width: 100%;
+                        height: 100%;
                         palette: root.palette;
                         queue: root.search-results;
                         current-index: root.queue-index;
@@ -163,6 +170,8 @@ component DockShell inherits Rectangle {
             Rectangle {
                 horizontal-stretch: 1;
                 ContentView {
+                    width: 100%;
+                    height: 100%;
                     palette: root.palette;
                     results: root.search-results;
                     playlist-results: root.playlist-results;
@@ -192,8 +201,12 @@ component DockShell inherits Rectangle {
                 right-frame := DockFrame {
                     panel-kind: root.right-panel == "sidebar" ? "sidebar" : "queue";
                     palette: root.palette;
+                    width: 100%;
+                    height: 100%;
                     Sidebar {
                         visible: root.right-panel == "sidebar";
+                        width: 100%;
+                        height: 100%;
                         palette: root.palette;
                         username: root.username;
                         auth-state: root.auth-state;
@@ -207,6 +220,8 @@ component DockShell inherits Rectangle {
                     }
                     QueuePanel {
                         visible: root.right-panel == "queue";
+                        width: 100%;
+                        height: 100%;
                         palette: root.palette;
                         queue: root.search-results;
                         current-index: root.queue-index;
