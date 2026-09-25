@@ -32,24 +32,21 @@ export struct PlaylistInfo {
 
 export component IconBtn inherits Rectangle {
     in property <Palette> palette;
-    in property <string> icon;
+    in property <image> icon;
     callback clicked();
-    width: 34px;
-    height: 34px;
+    width: 36px;
+    height: 36px;
     border-radius: root.palette.radius;
-    background: ta.pressed ? root.palette.surface2 : transparent;
+    background: ta.has-hover ? root.palette.surface2 : transparent;
     ta := TouchArea {
         clicked => root.clicked();
         mouse-cursor: pointer;
     }
-    Text {
-        text: root.icon;
-        width: 100%;
-        height: 100%;
-        font-size: 15px;
-        color: root.palette.text;
-        horizontal-alignment: center;
-        vertical-alignment: center;
+    Image {
+        width: 18px;
+        height: 18px;
+        source: root.icon;
+        colorize: ta.has-hover ? root.palette.primary : root.palette.text;
     }
 }
 
@@ -126,8 +123,8 @@ export component CoverCard inherits Rectangle {
     width: 168px;
     height: 210px;
     border-radius: root.palette.radius;
-    background: root.palette.surface;
-    TouchArea {
+    background: ta.has-hover ? root.palette.surface2 : root.palette.surface;
+    ta := TouchArea {
         clicked => root.clicked(root.track.id);
         mouse-cursor: pointer;
     }

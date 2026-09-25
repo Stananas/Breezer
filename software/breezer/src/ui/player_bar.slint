@@ -1,5 +1,5 @@
-// Player bar: now playing, transport controls, seek + volume.
-// Always pinned at the bottom of the dock layout.
+// Player bar: now playing (left), transport (center), progress, volume (right).
+// Pinned at the bottom of the window.
 
 import { BreezerSlider, IconBtn, Palette, TrackInfo } from "./elements.slint";
 
@@ -37,67 +37,70 @@ export component PlayerBar inherits Rectangle {
             spacing: 14px;
             alignment: center;
 
-            // Cover thumbnail
-            Rectangle {
-                width: 60px;
-                height: 60px;
-                border-radius: 8px;
-                clip: true;
-                background: root.palette.surface;
-                Image {
+            // --- Now playing: cover + title/artist, glued left ---------------
+            HorizontalLayout {
+                width: 250px;
+                spacing: 12px;
+                alignment: center;
+                Rectangle {
                     width: 60px;
                     height: 60px;
-                    source: root.current-track.cover;
+                    border-radius: 8px;
+                    clip: true;
+                    background: root.palette.surface;
+                    Image {
+                        width: 60px;
+                        height: 60px;
+                        source: root.current-track.cover;
+                        image-fit: cover;
+                    }
+                }
+                VerticalLayout {
+                    width: 170px;
+                    spacing: 3px;
+                    alignment: center;
+                    Text {
+                        text: root.current-track.id >= 0 ? root.current-track.title : @tr("Breezer");
+                        color: root.palette.text;
+                        font-weight: 600;
+                        overflow: elide;
+                    }
+                    Text {
+                        text: root.current-track.artist;
+                        color: root.palette.text-secondary;
+                        font-size: 12px;
+                        overflow: elide;
+                    }
                 }
             }
 
-            // Title / artist
-            VerticalLayout {
-                width: 210px;
-                spacing: 3px;
-                alignment: center;
-                Text {
-                    text: root.current-track.id >= 0 ? root.current-track.title : @tr("Breezer");
-                    color: root.palette.text;
-                    font-weight: 600;
-                    overflow: elide;
-                }
-                Text {
-                    text: root.current-track.artist;
-                    color: root.palette.text-secondary;
-                    font-size: 12px;
-                    overflow: elide;
-                }
-            }
-
-            // Transport controls
+            // --- Transport controls (Lucide icons) ---------------------------
             HorizontalLayout {
                 spacing: 6px;
                 alignment: center;
-                IconBtn { palette: root.palette; icon: "⏮"; clicked => root.prev-requested(); }
+                IconBtn { palette: root.palette; icon: @image-url("icons/skip-back.png"); clicked => root.prev-requested(); }
                 Rectangle {
                     width: 44px;
                     height: 44px;
                     border-radius: 22px;
                     background: root.playing ? root.palette.surface : root.palette.primary;
+                    border-width: root.playing ? 1px : 0px;
+                    border-color: root.palette.surface;
                     ta := TouchArea {
                         clicked => root.toggle-requested();
                         mouse-cursor: pointer;
                     }
-                    Text {
-                        text: root.playing ? "⏸" : "▶";
-                        width: 100%;
-                        height: 100%;
-                        font-size: 20px;
-                        color: root.playing ? root.palette.primary : root.palette.on-primary;
-                        horizontal-alignment: center;
-                        vertical-alignment: center;
+                    Image {
+                        width: 22px;
+                        height: 22px;
+                        source: root.playing ? @image-url("icons/pause.png") : @image-url("icons/play.png");
+                        colorize: root.playing ? root.palette.primary : root.palette.on-primary;
                     }
                 }
-                IconBtn { palette: root.palette; icon: "⏭"; clicked => root.next-requested(); }
+                IconBtn { palette: root.palette; icon: @image-url("icons/skip-forward.png"); clicked => root.next-requested(); }
             }
 
-            // Progress
+            // --- Progress (stretches) ----------------------------------------
             VerticalLayout {
                 horizontal-stretch: 1;
                 spacing: 2px;
@@ -116,21 +119,19 @@ export component PlayerBar inherits Rectangle {
                 }
             }
 
-            // Volume
+            // --- Volume: glued right -----------------------------------------
             HorizontalLayout {
+                width: 150px;
                 spacing: 8px;
                 alignment: center;
-                Text {
-                    text: "🔊";
-                    width: 20px;
-                    height: 100%;
-                    color: root.palette.text-secondary;
-                    font-size: 14px;
-                    vertical-alignment: center;
-                    horizontal-alignment: center;
+                Image {
+                    width: 18px;
+                    height: 18px;
+                    source: root.volume > 0 ? @image-url("icons/volume-2.png") : @image-url("icons/volume-x.png");
+                    colorize: root.palette.text-secondary;
                 }
                 BreezerSlider {
-                    width: 110px;
+                    horizontal-stretch: 1;
                     palette: root.palette;
                     minimum: 0;
                     maximum: 100;

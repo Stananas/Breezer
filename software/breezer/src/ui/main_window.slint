@@ -294,8 +294,9 @@ component ObPill inherits Rectangle {
     callback clicked();
     height: 26px;
     border-radius: 13px;
-    background: root.active ? root.palette.primary : root.palette.surface2;
-    TouchArea {
+    background: root.active ? root.palette.primary :
+                (ta.has-hover ? root.palette.surface : root.palette.surface2);
+    ta := TouchArea {
         clicked => root.clicked();
         mouse-cursor: pointer;
     }
@@ -318,9 +319,10 @@ component ObBtn inherits Rectangle {
     callback clicked();
     height: 34px;
     border-radius: root.palette.radius;
-    background: root.enabled && root.primary ? root.palette.primary : root.palette.surface2;
-    opacity: root.enabled ? 1.0 : 0.45;
-    TouchArea {
+    background: root.enabled && root.primary ? root.palette.primary :
+                (ta.has-hover ? root.palette.surface2 : root.palette.surface2);
+    opacity: root.enabled ? (ta.has-hover ? 1.0 : 1.0) : 0.45;
+    ta := TouchArea {
         enabled: root.enabled;
         clicked => root.clicked();
         mouse-cursor: pointer;

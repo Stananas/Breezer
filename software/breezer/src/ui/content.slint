@@ -11,8 +11,9 @@ component Chip inherits Rectangle {
     callback clicked();
     height: 28px;
     border-radius: 14px;
-    background: root.active ? root.palette.primary : root.palette.surface2;
-    TouchArea {
+    background: root.active ? root.palette.primary :
+                (ta.has-hover ? root.palette.surface : root.palette.surface2);
+    ta := TouchArea {
         clicked => root.clicked();
         mouse-cursor: pointer;
     }
@@ -34,8 +35,8 @@ component SettingsBtn inherits Rectangle {
     callback clicked();
     height: 32px;
     border-radius: root.palette.radius;
-    background: root.palette.surface2;
-    TouchArea {
+    background: ta.has-hover ? root.palette.surface : root.palette.surface2;
+    ta := TouchArea {
         clicked => root.clicked();
         mouse-cursor: pointer;
     }
@@ -171,8 +172,7 @@ export component ContentView inherits Rectangle {
                     vertical-alignment: center;
                 }
             }
-        }
-
+            } // end search bar row
         Rectangle {
             vertical-stretch: 1;
             // Status hints only when there are no results yet — the grid must
