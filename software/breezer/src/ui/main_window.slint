@@ -181,9 +181,13 @@ component DockShell inherits Rectangle {
                     current-view: root.current-view;
                     theme-id: root.theme-id;
                     ui-language: root.ui-language;
+                    username: root.username;
+                    current-track: root.current-track;
+                    playing: root.playing;
                     search-requested(q) => root.search-requested(q);
                     play-requested(id) => root.play-requested(id);
                     playlist-selected(id) => root.playlist-selected(id);
+                    toggle-requested => root.toggle-requested();
                     back-requested => root.back-requested();
                     theme-changed(s) => root.theme-changed(s);
                     language-changed(s) => root.language-changed(s);

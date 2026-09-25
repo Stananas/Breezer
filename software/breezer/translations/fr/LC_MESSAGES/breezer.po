@@ -182,3 +182,19 @@ msgstr "3. Copiez la valeur du cookie « arl »."
 
 msgid "4. Paste it above, then click Connect."
 msgstr "4. Collez-la ci-dessus, puis cliquez sur Se connecter."
+
+# --- Home page ---
+msgid "Welcome back"
+msgstr "Bienvenue"
+
+msgid "Continue listening"
+msgstr "Reprendre la lecture"
+
+msgid "Resume"
+msgstr "Reprendre"
+
+msgid "Pause"
+msgstr "Pause"
+
+msgid "Trending"
+msgstr "Tendances"

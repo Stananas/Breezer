@@ -122,14 +122,15 @@ export component PlayerBar inherits Rectangle {
         }
     }
 
-    // duration slider row — slider reduced (≤ 420px) and centered
+    // duration slider row — the whole unit (elapsed + slider + total) is
+    // centered horizontally; the slider itself is capped at 440px.
     Rectangle {
         x: 312px;
         y: 62px;
         width: root.width - 312px - 176px;
         height: 26px;
         Rectangle {
-            x: 0px;
+            x: (root.width - 312px - 176px - min(root.width - 312px - 176px - 108px, 440px) - 108px) / 2;
             y: 0px;
             width: 42px;
             height: 26px;
@@ -145,9 +146,9 @@ export component PlayerBar inherits Rectangle {
             }
         }
         BreezerSlider {
-            x: (root.width - 312px - 176px - 84px) / 2 + 42px;
+            x: (root.width - 312px - 176px - min(root.width - 312px - 176px - 108px, 440px) - 108px) / 2 + 54px;
             y: 0px;
-            width: min(root.width - 312px - 176px - 84px, 420px);
+            width: min(root.width - 312px - 176px - 108px, 440px);
             height: 26px;
             palette: root.palette;
             minimum: 0;
@@ -156,7 +157,7 @@ export component PlayerBar inherits Rectangle {
             changed(v) => root.seek-requested(v);
         }
         Rectangle {
-            x: root.width - 312px - 176px - 42px;
+            x: (root.width - 312px - 176px - min(root.width - 312px - 176px - 108px, 440px) - 108px) / 2 + 54px + min(root.width - 312px - 176px - 108px, 440px) + 12px;
             y: 0px;
             width: 42px;
             height: 26px;

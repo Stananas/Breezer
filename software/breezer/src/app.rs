@@ -555,6 +555,32 @@ fn run_gui() -> Result<()> {
             let plugins = PluginRegistry::with_system();
             let mut last_cards: Vec<TrackCard> = Vec::new();
 
+            // Seed the Home page with Deezer's trending tracks (public chart).
+            match api.chart(24).await {
+                Ok(tracks) => {
+                    let urls: Vec<String> = tracks
+                        .iter()
+                        .map(|t| t.album.cover_medium.clone())
+                        .collect();
+                    covers.ensure(&urls).await;
+                    let cards: Vec<TrackCard> = tracks
+                        .into_iter()
+                        .map(|t| TrackCard {
+                            id: t.id as i32,
+                            title: t.title,
+                            artist: t.artist.name,
+                            album: t.album.title,
+                            cover_url: t.album.cover_medium,
+                            duration: t.duration as f32,
+                        })
+                        .collect();
+                    last_cards = cards.clone();
+                    let _ = evt_tx2.send(Evt::Results(cards)).await;
+                    let _ = evt_tx2.send(Evt::Status(String::new())).await;
+                }
+                Err(e) => log::debug!("chart prefetch failed: {e}"),
+            }
+
             let _ = evt_tx2.send(Evt::PlayerEnabled(player.has_device())).await;
 
             let mut cmd_rx = cmd_rx;

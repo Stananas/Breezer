@@ -100,6 +100,10 @@ export component ContentView inherits Rectangle {
     in property <string> current-view;
     in property <string> theme-id;
     in property <string> ui-language;
+    in property <string> username;
+    in property <TrackInfo> current-track;
+    in property <bool> playing;
+    callback toggle-requested();
     callback search-requested(string);
     callback play-requested(int);
     callback playlist-selected(string);
@@ -175,6 +179,98 @@ export component ContentView inherits Rectangle {
                 }
             }
             } // end search bar row
+
+        // ---- HOME PAGE content ----------------------------------------
+        if root.current-view == "home":
+            Text {
+                text: @tr("Welcome back") + (root.username != "" ? ", " + root.username : "");
+                color: root.palette.text-secondary;
+                font-size: 13px;
+                font-weight: 600;
+            }
+            // Resume card: the last played track (loaded paused) — press to play.
+            if root.current-track.id >= 0: Rectangle {
+                height: 116px;
+                border-radius: root.palette.radius * 2;
+                background: root.palette.surface;
+                border-width: 1px;
+                border-color: root.palette.surface2;
+                HorizontalLayout {
+                    spacing: 16px;
+                    padding: 12px;
+                    Rectangle {
+                        width: 92px;
+                        height: 92px;
+                        border-radius: root.palette.radius;
+                        clip: true;
+                        background: root.palette.surface2;
+                        Image {
+                            source: root.current-track.cover;
+                            width: 92px;
+                            height: 92px;
+                            image-fit: cover;
+                        }
+                    }
+                    VerticalLayout {
+                        spacing: 4px;
+                        vertical-stretch: 1;
+                        Text {
+                            text: @tr("Continue listening");
+                            color: root.palette.primary;
+                            font-size: 12px;
+                            font-weight: 700;
+                        }
+                        Text {
+                            text: root.current-track.title;
+                            color: root.palette.text;
+                            font-size: 17px;
+                            font-weight: 800;
+                            overflow: elide;
+                        }
+                        Text {
+                            text: root.current-track.artist;
+                            color: root.palette.text-secondary;
+                            font-size: 13px;
+                            overflow: elide;
+                        }
+                        Rectangle {
+                            height: 34px;
+                            border-radius: root.palette.radius;
+                            background: root.playing ? root.palette.surface2 : root.palette.primary;
+                            hover-btn := TouchArea {
+                                clicked => root.toggle-requested();
+                                mouse-cursor: pointer;
+                            }
+                            Text {
+                                text: root.playing ? @tr("Pause") : @tr("Resume");
+                                width: 100%;
+                                height: 100%;
+                                color: root.playing ? root.palette.text : root.palette.on-primary;
+                                font-weight: 600;
+                                font-size: 13px;
+                                horizontal-alignment: center;
+                                vertical-alignment: center;
+                            }
+                        }
+                    }
+                    Rectangle { horizontal-stretch: 1; }
+                    if root.status != "":
+                        Text {
+                            text: root.status;
+                            color: root.palette.text-secondary;
+                            font-size: 12px;
+                            horizontal-alignment: right;
+                        }
+                }
+            }
+            if root.results.length > 0:
+                Text {
+                    text: @tr("Trending");
+                    color: root.palette.text;
+                    font-size: 16px;
+                    font-weight: 800;
+                }
+
         Rectangle {
         width: 100%;
         height: 100%;
