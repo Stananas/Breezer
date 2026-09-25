@@ -86,6 +86,8 @@ export component PlayerBar inherits Rectangle {
                     }
                     Text {
                         text: root.playing ? "⏸" : "▶";
+                        width: 100%;
+                        height: 100%;
                         font-size: 20px;
                         color: root.playing ? root.palette.primary : root.palette.on-primary;
                         horizontal-alignment: center;
@@ -120,8 +122,12 @@ export component PlayerBar inherits Rectangle {
                 alignment: center;
                 Text {
                     text: "🔊";
+                    width: 20px;
+                    height: 100%;
                     color: root.palette.text-secondary;
                     font-size: 14px;
+                    vertical-alignment: center;
+                    horizontal-alignment: center;
                 }
                 BreezerSlider {
                     width: 110px;

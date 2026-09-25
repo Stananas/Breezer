@@ -114,13 +114,19 @@ component DockShell inherits Rectangle {
     property <bool> drag-running: drag-panel != "";
 
     // --- main dock layout -------------------------------------------------
-    VerticalLayout {
+    // Main content area (fills the window above the pinned player).
+    Rectangle {
+        x: 0px;
+        y: 0px;
         width: 100%;
-        height: 100%;
-        spacing: 0;
-        HorizontalLayout {
-            vertical-stretch: 1;
+        height: root.height - 86px;
+        VerticalLayout {
+            width: 100%;
+            height: 100%;
             spacing: 0;
+            HorizontalLayout {
+                vertical-stretch: 1;
+                spacing: 0;
 
             // LEFT slot
             Rectangle {
@@ -207,28 +213,30 @@ component DockShell inherits Rectangle {
             }
         }
 
-        // BOTTOM slot — the player is ALWAYS pinned here (never replaced).
-        Rectangle {
-            height: 86px;
-            bottom-frame := DockFrame {
-                panel-kind: "player";
-                palette: root.palette;
-                PlayerBar {
-                    palette: root.palette;
-                    playing: root.playing;
-                    position: root.position;
-                    progress-duration: root.progress-duration;
-                    position-label: root.position-label;
-                    duration-label: root.duration-label;
-                    volume: root.volume;
-                    current-track: root.current-track;
-                    toggle-requested => root.toggle-requested();
-                    prev-requested => root.prev-requested();
-                    next-requested => root.next-requested();
-                    seek-requested(v) => root.seek-requested(v);
-                    volume-requested(v) => root.volume-requested(v);
-                }
-            }
+    } // end content VerticalLayout
+    } // end content-area Rectangle
+
+    // Player — absolutely pinned to the bottom edge: it cannot be displaced
+    // by any layout preference.
+    Rectangle {
+        x: 0px;
+        y: root.height - 86px;
+        width: 100%;
+        height: 86px;
+        PlayerBar {
+            palette: root.palette;
+            playing: root.playing;
+            position: root.position;
+            progress-duration: root.progress-duration;
+            position-label: root.position-label;
+            duration-label: root.duration-label;
+            volume: root.volume;
+            current-track: root.current-track;
+            toggle-requested => root.toggle-requested();
+            prev-requested => root.prev-requested();
+            next-requested => root.next-requested();
+            seek-requested(v) => root.seek-requested(v);
+            volume-requested(v) => root.volume-requested(v);
         }
     }
 
