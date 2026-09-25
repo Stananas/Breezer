@@ -13,7 +13,7 @@ Linux · macOS · Windows
 ![License](https://img.shields.io/badge/license-AGPL--3.0%20or%20later-blue)
 ![Rust](https://img.shields.io/badge/Rust-1.85+-orange)
 ![Platform](https://img.shields.io/badge/platform-Linux%20%7C%20macOS%20%7C%20Windows-lightgrey)
-[![CI](https://img.shields.io/github/actions/workflow/status/Breezer-App/breezer/ci.yml?branch=main&label=CI)](https://github.com/Breezer-App/breezer/actions/workflows/ci.yml)
+[![CI](https://img.shields.io/github/actions/workflow/status/Stananas/Breezer/ci.yml?branch=main&label=CI)](https://github.com/Stananas/Breezer/actions/workflows/ci.yml)
 
 </div>
 
@@ -54,7 +54,7 @@ First run: paste your Deezer **ARL cookie** (see [docs/ARL.md](docs/ARL.md), ~2 
 
 ## 📦 Downloads
 
-Pre-built installers (AppImage/deb, dmg, nsis) are published on the **[Releases](https://github.com/Breezer-App/breezer/releases)** page,
+Pre-built installers (AppImage/deb, dmg, nsis) are published on the **[Releases](https://github.com/Stananas/Breezer/releases)** page,
 with automatic updates.
 
 ## 🧱 Repository layout

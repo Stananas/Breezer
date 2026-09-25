@@ -13,15 +13,15 @@ export default async function DocsPage({
   const docs = [
     {
       label: t("docs.arl"),
-      href: "https://github.com/Breezer-App/breezer/blob/main/docs/ARL.md",
+      href: "https://github.com/Stananas/Breezer/blob/main/docs/ARL.md",
     },
     {
       label: t("docs.plugins"),
-      href: "https://github.com/Breezer-App/breezer/blob/main/docs/PLUGINS.md",
+      href: "https://github.com/Stananas/Breezer/blob/main/docs/PLUGINS.md",
     },
     {
       label: t("docs.themesGuide"),
-      href: "https://github.com/Breezer-App/breezer/blob/main/docs/THEMES.md",
+      href: "https://github.com/Stananas/Breezer/blob/main/docs/THEMES.md",
     },
   ];
 

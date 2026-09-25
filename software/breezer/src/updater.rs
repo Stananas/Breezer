@@ -14,7 +14,7 @@ pub struct UpdateInfo {
 /// Current release feed. (The repository URL is a placeholder until the repo
 /// is published — a 404 simply reports "no update", which is correct for now.)
 const RELEASES_URL: &str =
-    "https://api.github.com/repos/Breezer-App/breezer/releases/latest";
+    "https://api.github.com/repos/Stananas/Breezer/releases/latest";
 const UA: &str = "Breezer/0.1 (auto-update)";
 
 /// Check whether a newer version is published on GitHub.

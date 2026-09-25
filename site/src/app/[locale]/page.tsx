@@ -33,7 +33,7 @@ export default async function HomePage({
             {t("hero.cta")}
           </Link>
           <a
-            href="https://github.com/Breezer-App/breezer"
+            href="https://github.com/Stananas/Breezer"
             target="_blank"
             rel="noreferrer"
             style={{

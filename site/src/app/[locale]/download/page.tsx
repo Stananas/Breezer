@@ -21,7 +21,7 @@ export default function DownloadPage() {
       <h1 style={{ fontSize: 30 }}>⬇ {t("title")}</h1>
       <p style={{ color: "#9aa0a8", maxWidth: 620, margin: "0 auto 32px" }}>{t("intro")}</p>
       <a
-        href="https://github.com/Breezer-App/breezer/releases/latest"
+        href="https://github.com/Stananas/Breezer/releases/latest"
         target="_blank"
         rel="noreferrer"
         style={{

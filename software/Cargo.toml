@@ -8,9 +8,9 @@ version = "0.1.0"
 edition = "2021"
 rust-version = "1.85"
 license = "AGPL-3.0-or-later"
-repository = "https://github.com/Breezer-App/breezer"
+repository = "https://github.com/Stananas/Breezer"
 authors = ["Breezer Contributors"]
-homepage = "https://github.com/Breezer-App/breezer"
+homepage = "https://github.com/Stananas/Breezer"
 
 [workspace.dependencies]
 breezer-plugin-api = { path = "plugin-api" }

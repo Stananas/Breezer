@@ -53,7 +53,7 @@ Au premier lancement : collez votre **cookie ARL** Deezer (voir [docs/ARL.md](do
 
 ## 📦 Téléchargements
 
-Les installateurs pré-compilés (AppImage/deb, dmg, nsis) sont publiés sur la page **[Releases](https://github.com/Breezer-App/breezer/releases)**,
+Les installateurs pré-compilés (AppImage/deb, dmg, nsis) sont publiés sur la page **[Releases](https://github.com/Stananas/Breezer/releases)**,
 avec mises à jour automatiques.
 
 ## 🧱 Structure du dépôt

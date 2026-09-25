@@ -6,7 +6,7 @@
 
 import { Elysia, t } from "elysia";
 
-const GITHUB_REPO = "Breezer-App/breezer";
+const GITHUB_REPO = "Stananas/Breezer";
 const GITHUB_API = "https://api.github.com/repos";
 const UA = "breezer-site/0.1";
 
