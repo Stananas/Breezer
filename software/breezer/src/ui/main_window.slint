@@ -133,7 +133,7 @@ component DockShell inherits Rectangle {
             // LEFT slot
             Rectangle {
                 visible: root.left-panel != "";
-                width: 236px;
+                width: root.left-panel != "" ? 236px : 0px;
                 left-frame := DockFrame {
                     panel-kind: root.left-panel == "sidebar" ? "sidebar" : "queue";
                     palette: root.palette;
@@ -202,7 +202,7 @@ component DockShell inherits Rectangle {
             // RIGHT slot
             Rectangle {
                 visible: root.right-panel != "";
-                width: 300px;
+                width: root.right-panel != "" ? 300px : 0px;
                 right-frame := DockFrame {
                     panel-kind: root.right-panel == "sidebar" ? "sidebar" : "queue";
                     palette: root.palette;
