@@ -41,7 +41,7 @@ jobs:
           workspaces: software
 
       - name: Install cargo-packager
-        uses: taiki-e/install-action@cargo-packager
+        run: cargo install cargo-packager
 
       - name: Package
         working-directory: software
