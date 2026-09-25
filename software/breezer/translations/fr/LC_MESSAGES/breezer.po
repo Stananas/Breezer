@@ -68,8 +68,11 @@ msgstr "Bienvenue sur Breezer"
 msgid "Tailor Breezer to your taste"
 msgstr "Personnalisez Breezer à votre goût"
 
-msgid "Connect your Deezer account (optional)"
-msgstr "Connectez votre compte Deezer (optionnel)"
+msgid "Connect your Deezer account (required)"
+msgstr "Connectez votre compte Deezer (obligatoire)"
+
+msgid "1. Open Deezer · 2. Copy your ARL cookie · 3. Paste & connect"
+msgstr "1. Ouvrez Deezer · 2. Copiez votre cookie ARL · 3. Collez & connectez"
 
 msgid "Paste your ARL cookie here…"
 msgstr "Collez votre cookie ARL ici…"
@@ -80,5 +83,5 @@ msgstr "Format de l'heure"
 msgid "Let's go"
 msgstr "C'est parti"
 
-msgid "Skip setup"
-msgstr "Ignorer la configuration"
+msgid "Quit Breezer"
+msgstr "Quitter Breezer"

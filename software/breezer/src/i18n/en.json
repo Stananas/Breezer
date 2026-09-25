@@ -10,6 +10,8 @@
   "auth.connecting": "Connecting…",
   "auth.success": "Signed in as {username}",
   "auth.failed": "Connection refused. Is the ARL valid?",
+  "auth.paste.arl": "Please paste your ARL first — opening Deezer login…",
+  "auth.connect.first": "Deezer login is required before you can continue.",
   "auth.logged.as": "Signed in: {username}",
   "auth.anonymous": "Not connected",
   "player.auth.required": "Sign in with your ARL to play tracks.",

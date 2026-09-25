@@ -134,9 +134,10 @@ export component Sidebar inherits Rectangle {
         if root.auth-state < 2: VerticalLayout {
             spacing: 6px;
             SectionLabel { fg: root.palette.text-secondary; text: @tr("Deezer login — ARL"); }
-            TextInput {
+            arl-field := TextInput {
                 height: 32px;
                 text <=> root.arl-input;
+                edited => { root.arl-input = arl-field.text; }
                 color: root.palette.text;
                 accepted => root.connect-requested(root.arl-input);
             }
@@ -149,7 +150,6 @@ export component Sidebar inherits Rectangle {
                 ActionButton {
                     palette: root.palette; label: @tr("Connect");
                     primary: true;
-                    enabled: root.arl-input != "";
                     clicked => root.connect-requested(root.arl-input);
                 }
             }

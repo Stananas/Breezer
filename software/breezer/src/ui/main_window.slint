@@ -403,7 +403,7 @@ export component MainWindow inherits Window {
     callback save-layout-requested();
     callback reset-layout-requested();
     callback onboarding-finish-requested();
-    callback onboarding-skip-requested();
+    callback onboarding-quit-requested();
     callback time-format-requested(string);
 
     DockShell {
@@ -509,14 +509,21 @@ export component MainWindow inherits Window {
 
                         Rectangle { height: 1px; background: root.palette.surface2; }
                         Text {
-                            text: @tr("Connect your Deezer account (optional)");
+                            text: @tr("Connect your Deezer account (required)");
                             font-weight: 700;
                             color: root.palette.text;
                             font-size: 14px;
                         }
-                        TextInput {
+                        Text {
+                            text: @tr("1. Open Deezer · 2. Copy your ARL cookie · 3. Paste & connect");
+                            color: root.palette.text-secondary;
+                            font-size: 12px;
+                            wrap: word-wrap;
+                        }
+                        onboard-field := TextInput {
                             height: 34px;
                             text <=> root.onboard-arl;
+                            edited => { root.onboard-arl = onboard-field.text; }
                             color: root.palette.text;
                             accepted => root.connect-requested(root.onboard-arl);
                         }
@@ -524,7 +531,6 @@ export component MainWindow inherits Window {
                             ObBtn { palette: root.palette; label: @tr("Open Deezer"); clicked => root.open-browser-requested(); }
                             ObBtn {
                                 palette: root.palette; label: @tr("Connect"); primary: true;
-                                enabled: root.onboard-arl != "";
                                 clicked => root.connect-requested(root.onboard-arl);
                             }
                         }
@@ -538,7 +544,7 @@ export component MainWindow inherits Window {
                         Rectangle { height: 1px; background: root.palette.surface2; }
                         HorizontalLayout { spacing: 8px;
                             ObBtn { palette: root.palette; label: @tr("Let's go"); primary: true; clicked => root.onboarding-finish-requested(); }
-                            ObBtn { palette: root.palette; label: @tr("Skip setup"); clicked => root.onboarding-skip-requested(); }
+                            ObBtn { palette: root.palette; label: @tr("Quit Breezer"); clicked => root.onboarding-quit-requested(); }
                         }
                     }
                 }

@@ -45,7 +45,7 @@ enum Cmd {
     SaveLayout,
     ResetLayout,
     FinishOnboarding,
-    SkipOnboarding,
+    QuitApp,
     TimeFormat(String),
 }
 
@@ -285,7 +285,7 @@ fn run_gui() -> Result<()> {
     window.on_save_layout_requested(unary(cmd_tx.clone(), Cmd::SaveLayout));
     window.on_reset_layout_requested(unary(cmd_tx.clone(), Cmd::ResetLayout));
     window.on_onboarding_finish_requested(unary(cmd_tx.clone(), Cmd::FinishOnboarding));
-    window.on_onboarding_skip_requested(unary(cmd_tx.clone(), Cmd::SkipOnboarding));
+    window.on_onboarding_quit_requested(unary(cmd_tx.clone(), Cmd::QuitApp));
     window.on_time_format_requested({
         let tx = cmd_tx.clone();
         move |s: Str| {
@@ -375,6 +375,16 @@ fn run_gui() -> Result<()> {
                     }
 
                     Cmd::Connect(arl) => {
+                        if arl.trim().is_empty() {
+                            // No ARL pasted: guide the user instead of failing.
+                            if let Err(e) = webbrowser::open("https://www.deezer.com/login") {
+                                log::warn!("could not open browser: {e}");
+                            }
+                            let _ = evt_tx2
+                                .send(Evt::Status(i18n.t("auth.paste.arl")))
+                                .await;
+                            continue;
+                        }
                         let _ = evt_tx2.send(Evt::Status(i18n.t("auth.connecting"))).await;
                         match api.auth_with_arl(&arl).await {
                             Ok(session) => {
@@ -395,6 +405,15 @@ fn run_gui() -> Result<()> {
                                 let msg =
                                     i18n.t_args("auth.success", &[("username", &session.username)]);
                                 let _ = evt_tx2.send(Evt::Status(msg)).await;
+                                // Login is mandatory: successful connection also
+                                // completes the first-launch onboarding.
+                                if !cfg.onboarding_done {
+                                    cfg.onboarding_done = true;
+                                    if let Err(e) = cfg.save() {
+                                        log::warn!("could not save config: {e}");
+                                    }
+                                    let _ = evt_tx2.send(Evt::OnboardingDone).await;
+                                }
                             }
                             Err(e) => {
                                 log::warn!("auth failed: {e}");
@@ -502,12 +521,26 @@ fn run_gui() -> Result<()> {
                         // v0.2: in-app color editor dialog.
                         let _ = evt_tx2.send(Evt::Status(i18n.t("theme.applied"))).await;
                     }
-                    Cmd::FinishOnboarding | Cmd::SkipOnboarding => {
-                        cfg.onboarding_done = true;
-                        if let Err(e) = cfg.save() {
-                            log::warn!("could not save config: {e}");
+                    Cmd::FinishOnboarding => {
+                        // Deezer login is mandatory: refuse until connected.
+                        if cfg.arl.is_some() {
+                            cfg.onboarding_done = true;
+                            if let Err(e) = cfg.save() {
+                                log::warn!("could not save config: {e}");
+                            }
+                            let _ = evt_tx2.send(Evt::OnboardingDone).await;
+                        } else {
+                            if let Err(e) = webbrowser::open("https://www.deezer.com/login") {
+                                log::warn!("could not open browser: {e}");
+                            }
+                            let _ = evt_tx2
+                                .send(Evt::Status(i18n.t("auth.connect.first")))
+                                .await;
                         }
-                        let _ = evt_tx2.send(Evt::OnboardingDone).await;
+                    }
+                    Cmd::QuitApp => {
+                        let _ = slint::quit_event_loop();
+                        break;
                     }
                     Cmd::TimeFormat(fmt) => {
                         if fmt == "24h" || fmt == "12h" {
