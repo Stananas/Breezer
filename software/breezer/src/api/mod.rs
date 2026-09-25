@@ -55,13 +55,24 @@ impl ApiClient {
             .user_agent(BROWSER_UA)
             .cookie_store(true)
             .build()?;
-        Ok(Self { http, arl: None, api_token: None, session_id: None, license_token: None, user_id: None })
+        Ok(Self {
+            http,
+            arl: None,
+            api_token: None,
+            session_id: None,
+            license_token: None,
+            user_id: None,
+        })
     }
 
     /// Build from the stored configuration.
     pub fn from_config(cfg: &crate::config::Config) -> Result<Self> {
         let client = Self::new()?;
-        Ok(Self { arl: cfg.arl.clone(), api_token: cfg.api_token.clone(), ..client })
+        Ok(Self {
+            arl: cfg.arl.clone(),
+            api_token: cfg.api_token.clone(),
+            ..client
+        })
     }
 
     pub fn is_authenticated(&self) -> bool {
@@ -176,11 +187,7 @@ impl ApiClient {
     }
 
     /// Playlists of the signed-in user.
-    pub async fn user_playlists(
-        &self,
-        user_id: i64,
-        limit: u32,
-    ) -> Result<Vec<models::Playlist>> {
+    pub async fn user_playlists(&self, user_id: i64, limit: u32) -> Result<Vec<models::Playlist>> {
         let resp = self
             .http
             .get(format!("{API_BASE}/user/{user_id}/playlists"))
@@ -199,7 +206,11 @@ impl ApiClient {
     // ---------------------------------------------------------------------
 
     /// Authenticated gateway call (JSON body + `arl`/`sid` cookies + api_token).
-    async fn gateway_call(&self, method: &str, payload: serde_json::Value) -> Result<serde_json::Value> {
+    async fn gateway_call(
+        &self,
+        method: &str,
+        payload: serde_json::Value,
+    ) -> Result<serde_json::Value> {
         let api_token = self
             .api_token
             .as_deref()
@@ -228,7 +239,10 @@ impl ApiClient {
     /// Resolve the `TRACK_TOKEN` for a track id (`deezer.pageTrack`).
     pub async fn track_token(&self, track_id: u64) -> Result<String> {
         let resp = self
-            .gateway_call("deezer.pageTrack", serde_json::json!({ "sng_id": track_id.to_string() }))
+            .gateway_call(
+                "deezer.pageTrack",
+                serde_json::json!({ "sng_id": track_id.to_string() }),
+            )
             .await?;
         let data = resp
             .get("results")
@@ -318,7 +332,11 @@ impl ApiClient {
             let id = item["PLAYLIST_ID"]
                 .as_i64()
                 .or_else(|| item["id"].as_i64())
-                .or_else(|| item["PLAYLIST_ID"].as_str().and_then(|s| s.parse::<i64>().ok()))
+                .or_else(|| {
+                    item["PLAYLIST_ID"]
+                        .as_str()
+                        .and_then(|s| s.parse::<i64>().ok())
+                })
                 .or_else(|| item["id"].as_str().and_then(|s| s.parse::<i64>().ok()))
                 .unwrap_or(0);
             if id == 0 {
@@ -339,7 +357,12 @@ impl ApiClient {
                 .as_u64()
                 .or_else(|| item["nb_tracks"].as_u64())
                 .unwrap_or(0) as u32;
-            out.push(models::PlaylistMeta { id: id as u64, title, picture_hash: picture, count });
+            out.push(models::PlaylistMeta {
+                id: id as u64,
+                title,
+                picture_hash: picture,
+                count,
+            });
         }
         Ok(out)
     }
@@ -390,10 +413,7 @@ impl ApiClient {
                     .as_str()
                     .unwrap_or("Unknown artist")
                     .to_string();
-                let album_title = track["ALB_TITLE"]
-                    .as_str()
-                    .unwrap_or_default()
-                    .to_string();
+                let album_title = track["ALB_TITLE"].as_str().unwrap_or_default().to_string();
                 let cover = track["ALB_PICTURE"]
                     .as_str()
                     .filter(|s| !s.is_empty())
@@ -414,7 +434,11 @@ impl ApiClient {
                     title,
                     duration,
                     artist: models::Artist { name: artist },
-                    album: models::Album { title: album_title, cover_medium: cover, cover_big: String::new() },
+                    album: models::Album {
+                        title: album_title,
+                        cover_medium: cover,
+                        cover_big: String::new(),
+                    },
                 });
             }
             if out.len() == before {
@@ -465,11 +489,11 @@ impl ApiClient {
     pub async fn track_duration(&self, id: u64) -> Option<u32> {
         let url = format!("{API_BASE}/track/{id}");
         match self.http.get(&url).send().await {
-            Ok(r) if r.status().is_success() => {
-                r.json::<serde_json::Value>().await.ok().and_then(|v| {
-                    v["duration"].as_u64().map(|d| d as u32)
-                })
-            }
+            Ok(r) if r.status().is_success() => r
+                .json::<serde_json::Value>()
+                .await
+                .ok()
+                .and_then(|v| v["duration"].as_u64().map(|d| d as u32)),
             _ => None,
         }
     }
@@ -485,8 +509,14 @@ fn parse_history_track(v: serde_json::Value) -> Option<models::Track> {
     if id == 0 {
         return None;
     }
-    let title = v["SNG_TITLE"].as_str().unwrap_or("Unknown track").to_string();
-    let artist = v["ART_NAME"].as_str().unwrap_or("Unknown artist").to_string();
+    let title = v["SNG_TITLE"]
+        .as_str()
+        .unwrap_or("Unknown track")
+        .to_string();
+    let artist = v["ART_NAME"]
+        .as_str()
+        .unwrap_or("Unknown artist")
+        .to_string();
     let cover = v["ALB_PICTURE"]
         .as_str()
         .filter(|s| !s.is_empty())

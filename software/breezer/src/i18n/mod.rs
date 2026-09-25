@@ -61,17 +61,17 @@ impl I18n {
 
     /// Translate `key`, e.g. `t("search.prompt")`.
     pub fn t(&self, key: &str) -> String {
-        self.map
-            .get(key)
-            .cloned()
-            .unwrap_or_else(|| {
-                // Fallback: try the English table, then the key itself.
-                if self.lang == Lang::En {
-                    key.to_string()
-                } else {
-                    parse(EN).get(key).cloned().unwrap_or_else(|| key.to_string())
-                }
-            })
+        self.map.get(key).cloned().unwrap_or_else(|| {
+            // Fallback: try the English table, then the key itself.
+            if self.lang == Lang::En {
+                key.to_string()
+            } else {
+                parse(EN)
+                    .get(key)
+                    .cloned()
+                    .unwrap_or_else(|| key.to_string())
+            }
+        })
     }
 
     /// Translate with naive `{arg}` substitution, e.g. `t_args("search.results", &[("count", "12"), ("query", "drake")])`.

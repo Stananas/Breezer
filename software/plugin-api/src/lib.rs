@@ -26,7 +26,11 @@ pub struct MenuItem {
 
 impl MenuItem {
     pub fn new(id: impl Into<String>, label: impl Into<String>) -> Self {
-        Self { id: id.into(), label: label.into(), hint: String::new() }
+        Self {
+            id: id.into(),
+            label: label.into(),
+            hint: String::new(),
+        }
     }
 }
 

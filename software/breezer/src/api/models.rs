@@ -108,7 +108,12 @@ impl DzUserData {
         let session_id = results
             .get("SESSION_ID")
             .and_then(|v| v.as_str().map(str::to_string))
-            .or_else(|| results.get("SESSION_ID").and_then(|v| v.as_i64()).map(|i| i.to_string()))
+            .or_else(|| {
+                results
+                    .get("SESSION_ID")
+                    .and_then(|v| v.as_i64())
+                    .map(|i| i.to_string())
+            })
             .unwrap_or_default();
         let user = results.get("USER").cloned().unwrap_or_default();
         let user_id = user
@@ -141,7 +146,13 @@ impl DzUserData {
             .and_then(|v| v.as_str())
             .unwrap_or_default()
             .to_string();
-        Ok(Self { token, session_id, user_id, username, license_token })
+        Ok(Self {
+            token,
+            session_id,
+            user_id,
+            username,
+            license_token,
+        })
     }
 }
 #[cfg(test)]
@@ -166,10 +177,7 @@ mod tests {
         let v: serde_json::Value = serde_json::from_str(json).unwrap();
         let d = DzUserData::from_value(&v).unwrap();
         assert_eq!(d.token, "5.HXyAeGX2nhJkdoKp1Zk9dl-YfK0Sjn");
-        assert_eq!(
-            d.session_id,
-            "frcb7a74850a29abd7e2b77df1211fbb8ee680c6"
-        );
+        assert_eq!(d.session_id, "frcb7a74850a29abd7e2b77df1211fbb8ee680c6");
         assert_eq!(d.user_id, 123456);
         assert_eq!(d.username, "bob");
     }

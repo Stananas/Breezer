@@ -31,3 +31,5 @@ jobs:
         with:
           command: update
           manifest_path: software/Cargo.toml
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

@@ -44,7 +44,12 @@ impl Engine {
             }
             Err(e) => {
                 log::warn!("no audio output device available: {e}");
-                Self { _handle: None, player: None, volume: 0.7, playing: false }
+                Self {
+                    _handle: None,
+                    player: None,
+                    volume: 0.7,
+                    playing: false,
+                }
             }
         }
     }
@@ -142,9 +147,8 @@ impl Engine {
             .as_ref()
             .ok_or_else(|| crate::error::Error::Other("no audio output device".into()))?;
         let cursor = std::io::Cursor::new(bytes);
-        let decoder = rodio::Decoder::new(cursor).map_err(|e| {
-            crate::error::Error::Other(format!("failed to decode MP3 stream: {e}"))
-        })?;
+        let decoder = rodio::Decoder::new(cursor)
+            .map_err(|e| crate::error::Error::Other(format!("failed to decode MP3 stream: {e}")))?;
         p.stop();
         p.append(decoder);
         p.set_volume(self.volume);

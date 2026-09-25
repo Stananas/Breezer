@@ -15,8 +15,7 @@ use crate::error::Result;
 use semver::Version;
 use std::path::{Path, PathBuf};
 
-pub const RELEASES_URL: &str =
-    "https://api.github.com/repos/Stananas/Breezer/releases/latest";
+pub const RELEASES_URL: &str = "https://api.github.com/repos/Stananas/Breezer/releases/latest";
 pub const UA: &str = "Breezer/0.1 (auto-update)";
 
 /// A release asset (size not needed for binary targeting).
@@ -56,7 +55,10 @@ pub async fn check(http: &reqwest::Client) -> Result<Option<Release>> {
     }
     let body: serde_json::Value = resp.json().await?;
 
-    let tag = body["tag_name"].as_str().unwrap_or_default().trim_start_matches('v');
+    let tag = body["tag_name"]
+        .as_str()
+        .unwrap_or_default()
+        .trim_start_matches('v');
     let latest = match Version::parse(tag) {
         Ok(v) => v,
         Err(_) => return Ok(None),
@@ -150,7 +152,10 @@ pub async fn prepare_latest_update(
     rel: &Release,
 ) -> Result<Option<Version>> {
     let Some(asset) = pick_binary(&rel.assets) else {
-        log::info!("update available but no binary for this platform ({})", platform_key());
+        log::info!(
+            "update available but no binary for this platform ({})",
+            platform_key()
+        );
         return Ok(None);
     };
     let dest = binary_path(&rel.version);
@@ -228,8 +233,8 @@ pub fn apply_latest_ready() -> Result<bool> {
     let Some((version, binary)) = latest_ready() else {
         return Ok(false);
     };
-    let current = Version::parse(env!("CARGO_PKG_VERSION"))
-        .unwrap_or_else(|_| Version::new(0, 0, 0));
+    let current =
+        Version::parse(env!("CARGO_PKG_VERSION")).unwrap_or_else(|_| Version::new(0, 0, 0));
     if version <= current {
         clear_ready();
         return Ok(false);
@@ -303,7 +308,10 @@ mod tests {
         assert_eq!(picked.name, "breezer-linux-x86_64");
         // Even without the raw binary, the AppImage is a valid fallback.
         let assets2 = vec![asset("breezer_0.2.0_x86_64.AppImage")];
-        assert_eq!(pick_binary(&assets2).unwrap().name, "breezer_0.2.0_x86_64.AppImage");
+        assert_eq!(
+            pick_binary(&assets2).unwrap().name,
+            "breezer_0.2.0_x86_64.AppImage"
+        );
     }
 
     #[test]

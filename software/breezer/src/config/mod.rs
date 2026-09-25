@@ -96,7 +96,8 @@ impl Theme {
     /// Built-in themes, embedded in the binary (kept out of the filesystem).
     const BUILTIN_DARK: &'static str = include_str!("../../../../themes/breezer-dark/theme.json");
     const BUILTIN_LIGHT: &'static str = include_str!("../../../../themes/breezer-light/theme.json");
-    const BUILTIN_AMOLED: &'static str = include_str!("../../../../themes/breezer-amoled/theme.json");
+    const BUILTIN_AMOLED: &'static str =
+        include_str!("../../../../themes/breezer-amoled/theme.json");
 
     /// Load a built-in theme by id (falls back to the dark theme).
     pub fn load_builtin(id: &str) -> Result<Theme> {
@@ -262,10 +263,7 @@ impl LayoutProfile {
     pub fn save(&self) -> Result<()> {
         let dir = config_dir();
         std::fs::create_dir_all(&dir)?;
-        std::fs::write(
-            dir.join("layout.json"),
-            serde_json::to_string_pretty(self)?,
-        )?;
+        std::fs::write(dir.join("layout.json"), serde_json::to_string_pretty(self)?)?;
         Ok(())
     }
 

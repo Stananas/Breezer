@@ -21,7 +21,10 @@ struct CoversInner {
 
 impl Covers {
     pub fn new(client: reqwest::Client) -> Self {
-        Self(Arc::new(CoversInner { cache: Mutex::new(HashMap::new()), client }))
+        Self(Arc::new(CoversInner {
+            cache: Mutex::new(HashMap::new()),
+            client,
+        }))
     }
 
     /// Ensure every URL is fetched (+decoded) and cached. Missing/failed

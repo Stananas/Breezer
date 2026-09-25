@@ -140,15 +140,28 @@ enum Evt {
     Status(String),
     VolumeLabel(String),
     PositionLabel(String),
-    Auth { state: i32, username: String },
+    Auth {
+        state: i32,
+        username: String,
+    },
     AuthFailed(String),
     TrackChanged(TrackCard),
     Playing(bool),
     Position(f32),
     Volume(f32),
-    Layout { left: String, right: String, bottom: String },
-    Theme { id: String, palette: UiPalette },
-    View { view: String, title: String },
+    Layout {
+        left: String,
+        right: String,
+        bottom: String,
+    },
+    Theme {
+        id: String,
+        palette: UiPalette,
+    },
+    View {
+        view: String,
+        title: String,
+    },
     Language(String),
     PlayerEnabled(bool),
     Shuffle(bool),
@@ -251,7 +264,10 @@ fn run_playlists_test() -> Result<()> {
     let rt = tokio::runtime::Runtime::new()?;
     rt.block_on(async {
         let mut api = ApiClient::from_config(&cfg)?;
-        match api.auth_with_arl(cfg.arl.as_deref().unwrap_or_default()).await {
+        match api
+            .auth_with_arl(cfg.arl.as_deref().unwrap_or_default())
+            .await
+        {
             Ok(s) => {
                 println!("session ok for user {}", s.user_id);
                 api.set_session(cfg.arl.clone().unwrap(), &s);
@@ -273,10 +289,7 @@ fn run_playlists_test() -> Result<()> {
                         Ok(tracks) => {
                             println!("  {} tracks fetched", tracks.len());
                             for t in tracks.iter().take(3) {
-                                println!(
-                                    "    {} — {} (id {})",
-                                    t.title, t.artist.name, t.id
-                                );
+                                println!("    {} — {} (id {})", t.title, t.artist.name, t.id);
                             }
                         }
                         Err(e) => println!("  playlist_tracks failed: {e}"),
@@ -286,10 +299,7 @@ fn run_playlists_test() -> Result<()> {
             Err(e) => println!("playlists failed: {e}"),
         }
         match api.last_played().await {
-            Ok(Some(t)) => println!(
-                "last played: {} — {} (id {})",
-                t.title, t.artist.name, t.id
-            ),
+            Ok(Some(t)) => println!("last played: {} — {} (id {})", t.title, t.artist.name, t.id),
             Ok(None) => println!("no listening history"),
             Err(e) => println!("last played error: {e}"),
         }
@@ -305,7 +315,10 @@ fn run_stream_test(track_id: u64) -> Result<()> {
     let rt = tokio::runtime::Runtime::new()?;
     rt.block_on(async {
         let mut api = ApiClient::from_config(&cfg)?;
-        match api.auth_with_arl(cfg.arl.as_deref().unwrap_or_default()).await {
+        match api
+            .auth_with_arl(cfg.arl.as_deref().unwrap_or_default())
+            .await
+        {
             Ok(s) => {
                 println!("session ok for user {}", s.user_id);
                 api.set_session(cfg.arl.clone().unwrap(), &s);
@@ -322,7 +335,10 @@ fn run_stream_test(track_id: u64) -> Result<()> {
                     Ok(dec) => {
                         println!("decrypted {} bytes", dec.len());
                         let head = std::cmp::min(8, dec.len());
-                        if dec.starts_with(b"ID3") || (dec.first() == Some(&0xFF) && (dec.get(1).copied().unwrap_or(0) & 0xE0) == 0xE0) {
+                        if dec.starts_with(b"ID3")
+                            || (dec.first() == Some(&0xFF)
+                                && (dec.get(1).copied().unwrap_or(0) & 0xE0) == 0xE0)
+                        {
                             println!("✓ MP3 header OK: {:02x?}", &dec[..head]);
                         } else {
                             println!("unexpected stream header: {:02x?}", &dec[..head]);
@@ -357,9 +373,7 @@ fn run_gui() -> Result<()> {
     {
         let bridge = window.global::<crate::DockBridge>();
         bridge.on_panel_to_transfer(slint::DataTransfer::from);
-        bridge.on_transfer_to_panel(|d| {
-            d.plain_text().unwrap_or_default()
-        });
+        bridge.on_transfer_to_panel(|d| d.plain_text().unwrap_or_default());
     }
 
     // -- theme & initial state ---------------------------------------------
@@ -373,10 +387,16 @@ fn run_gui() -> Result<()> {
     window.set_auth_state(if already_connected { 2 } else { 0 });
     window.set_current_view(SharedString::from("home"));
     window.set_view_title(SharedString::from(i18n.t("nav.home")));
-    window.set_version_status(SharedString::from(format!("Breezer v{}", env!("CARGO_PKG_VERSION"))));
+    window.set_version_status(SharedString::from(format!(
+        "Breezer v{}",
+        env!("CARGO_PKG_VERSION")
+    )));
     window.set_search_status(SharedString::from(i18n.t("search.prompt")));
     window.set_volume(cfg.volume);
-    window.set_volume_label(SharedString::from(format!("{} %", cfg.volume.round() as u32)));
+    window.set_volume_label(SharedString::from(format!(
+        "{} %",
+        cfg.volume.round() as u32
+    )));
     window.set_current_track(empty_track());
     window.set_position_label(SharedString::from("0:00"));
     window.set_duration_label(SharedString::from("0:00"));
@@ -1188,10 +1208,7 @@ fn run_gui() -> Result<()> {
                         }
                         Ok(None) => {
                             // No compatible build for this platform — point to GitHub.
-                            let msg = update_i18n.t_args(
-                                "update.available",
-                                &[("version", &v)],
-                            );
+                            let msg = update_i18n.t_args("update.available", &[("version", &v)]);
                             let w = weak.clone();
                             let _ = slint::invoke_from_event_loop(move || {
                                 if let Some(ui) = w.upgrade() {
@@ -1201,10 +1218,8 @@ fn run_gui() -> Result<()> {
                         }
                         Err(e) => {
                             log::warn!("update download failed: {e}");
-                            let msg = update_i18n.t_args(
-                                "update.download.failed",
-                                &[("error", &e.to_string())],
-                            );
+                            let msg = update_i18n
+                                .t_args("update.download.failed", &[("error", &e.to_string())]);
                             let _ = evt3.send(Evt::Status(msg)).await;
                         }
                     }
@@ -1283,7 +1298,9 @@ async fn play_card(
     });
 
     if cfg.arl.is_none() {
-        let _ = evt_tx.send(Evt::Status(i18n.t("player.auth.required"))).await;
+        let _ = evt_tx
+            .send(Evt::Status(i18n.t("player.auth.required")))
+            .await;
         return;
     }
     start_streaming(card, player, api, evt_tx, i18n).await;
@@ -1309,28 +1326,35 @@ async fn start_streaming(
         Err(e) => {
             log::warn!("streaming fetch failed: {e}");
             let _ = evt_tx
-                .send(Evt::Status(i18n.t_args("player.stream.error", &[("error", &e.to_string())])))
+                .send(Evt::Status(
+                    i18n.t_args("player.stream.error", &[("error", &e.to_string())]),
+                ))
                 .await;
             return;
         }
     };
-    let decrypted = match crate::player::decrypt::decrypt_audio_stream(&card.id.to_string(), &encrypted) {
-        Ok(d) => d,
-        Err(e) => {
-            log::warn!("stream decryption failed: {e}");
-            let _ = evt_tx
-                .send(Evt::Status(i18n.t_args("player.stream.error", &[("error", &e.to_string())])))
-                .await;
-            return;
-        }
-    };
+    let decrypted =
+        match crate::player::decrypt::decrypt_audio_stream(&card.id.to_string(), &encrypted) {
+            Ok(d) => d,
+            Err(e) => {
+                log::warn!("stream decryption failed: {e}");
+                let _ = evt_tx
+                    .send(Evt::Status(
+                        i18n.t_args("player.stream.error", &[("error", &e.to_string())]),
+                    ))
+                    .await;
+                return;
+            }
+        };
     match player.play_mp3_bytes(decrypted) {
         Ok(()) => {
             let _ = evt_tx.send(Evt::Playing(true)).await;
         }
         Err(e) => {
             let _ = evt_tx
-                .send(Evt::Status(i18n.t_args("player.stream.error", &[("error", &e.to_string())])))
+                .send(Evt::Status(
+                    i18n.t_args("player.stream.error", &[("error", &e.to_string())]),
+                ))
                 .await;
         }
     }
@@ -1443,7 +1467,11 @@ fn apply_event(ui: &MainWindow, evt: Evt, covers: &Covers) {
         Evt::VolumeLabel(s) => ui.set_volume_label(SharedString::from(s)),
         Evt::Shuffle(on) => ui.set_shuffle_on(on),
         Evt::Repeat(mode) => ui.set_repeat_mode(mode),
-        Evt::Layout { left, right, bottom } => {
+        Evt::Layout {
+            left,
+            right,
+            bottom,
+        } => {
             ui.set_left_panel(SharedString::from(left));
             ui.set_right_panel(SharedString::from(right));
             ui.set_bottom_panel(SharedString::from(bottom));

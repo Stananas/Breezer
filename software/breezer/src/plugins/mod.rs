@@ -15,7 +15,9 @@ pub struct PluginRegistry {
 impl PluginRegistry {
     /// Registry with the built-in system plugin.
     pub fn with_system() -> Self {
-        Self { plugins: vec![Box::<SystemPlugin>::default()] }
+        Self {
+            plugins: vec![Box::<SystemPlugin>::default()],
+        }
     }
 
     pub fn plugins(&self) -> &[Box<dyn Plugin>] {

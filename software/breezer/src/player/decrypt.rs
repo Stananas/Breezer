@@ -39,7 +39,10 @@ pub fn derive_blowfish_key(track_id: &str) -> [u8; 16] {
 }
 
 /// Decrypt a full Deezer encrypted stream in place (every 3rd chunk, CBC, no padding).
-pub fn decrypt_audio_stream(track_id: &str, encrypted: &[u8]) -> std::result::Result<Vec<u8>, DecryptError> {
+pub fn decrypt_audio_stream(
+    track_id: &str,
+    encrypted: &[u8],
+) -> std::result::Result<Vec<u8>, DecryptError> {
     let key = derive_blowfish_key(track_id);
     decrypt_audio_stream_with_key(&key, encrypted)
 }
@@ -96,7 +99,11 @@ fn md5_hex(bytes: &[u8]) -> String {
 /// One unit of decryption logic.
 pub trait StreamDecryptor: Send {
     /// Decrypt a full payload for `track_id`.
-    fn decrypt(&self, track_id: u64, ciphertext: &[u8]) -> std::result::Result<Vec<u8>, DecryptError>;
+    fn decrypt(
+        &self,
+        track_id: u64,
+        ciphertext: &[u8],
+    ) -> std::result::Result<Vec<u8>, DecryptError>;
 }
 
 /// Block decryptor for the historical `md5_origin` scheme.
@@ -117,12 +124,19 @@ impl Md5OriginDecryptor {
     pub fn new(md5_origin: &str, license_token: &str) -> Self {
         let material = format!("{md5_origin}{license_token}");
         let digest = md5_digest(material.as_bytes());
-        Self { key: digest, iv: [0u8; 16] }
+        Self {
+            key: digest,
+            iv: [0u8; 16],
+        }
     }
 }
 
 impl StreamDecryptor for Md5OriginDecryptor {
-    fn decrypt(&self, _track_id: u64, ciphertext: &[u8]) -> std::result::Result<Vec<u8>, DecryptError> {
+    fn decrypt(
+        &self,
+        _track_id: u64,
+        ciphertext: &[u8],
+    ) -> std::result::Result<Vec<u8>, DecryptError> {
         let mut cipher = Aes128CbcDec::new_from_slices(&self.key, &self.iv)
             .map_err(|_| DecryptError::InvalidKey)?;
 
@@ -226,12 +240,12 @@ mod tests {
         for chunk_index in [0usize, 3usize] {
             let start = chunk_index * CHUNK_SIZE;
             let chunk = &mut encrypted[start..start + CHUNK_SIZE];
-            let mut cipher = BlowfishCbcEnc::<blowfish::Blowfish>::new_from_slices(
-                &key,
-                &DEEZER_BLOWFISH_IV,
-            )
-            .unwrap();
-            cipher.encrypt_padded_mut::<NoPadding>(chunk, chunk.len()).unwrap();
+            let mut cipher =
+                BlowfishCbcEnc::<blowfish::Blowfish>::new_from_slices(&key, &DEEZER_BLOWFISH_IV)
+                    .unwrap();
+            cipher
+                .encrypt_padded_mut::<NoPadding>(chunk, chunk.len())
+                .unwrap();
         }
         let decrypted = decrypt_audio_stream_with_key(&key, &encrypted).unwrap();
         assert_eq!(decrypted, plaintext);

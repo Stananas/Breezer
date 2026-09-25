@@ -14,7 +14,10 @@ pub struct PlayQueue<T> {
 
 impl<T> Default for PlayQueue<T> {
     fn default() -> Self {
-        Self { tracks: VecDeque::new(), index: None }
+        Self {
+            tracks: VecDeque::new(),
+            index: None,
+        }
     }
 }
 
@@ -28,7 +31,11 @@ impl<T: Clone> PlayQueue<T> {
     pub fn set_tracks(&mut self, tracks: Vec<T>, start_at: usize) {
         self.tracks = tracks.into();
         self.index = Some(start_at.min(self.tracks.len().saturating_sub(1)));
-        log::debug!("queue set: {} tracks at {:?}", self.tracks.len(), self.index);
+        log::debug!(
+            "queue set: {} tracks at {:?}",
+            self.tracks.len(),
+            self.index
+        );
     }
 
     pub fn is_empty(&self) -> bool {
@@ -49,7 +56,9 @@ impl<T: Clone> PlayQueue<T> {
 
     #[allow(clippy::should_implement_trait)]
     pub fn next(&mut self) -> Option<&T> {
-        self.index = self.index.map(|i| (i + 1).min(self.tracks.len().saturating_sub(1)));
+        self.index = self
+            .index
+            .map(|i| (i + 1).min(self.tracks.len().saturating_sub(1)));
         self.current()
     }
 
