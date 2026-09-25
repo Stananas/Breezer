@@ -45,7 +45,9 @@ jobs:
 
       - name: Package
         working-directory: software
-        run: cargo packager --release
+        run: |
+          cargo build --release
+          cargo packager --release
 
       - name: Collect artifacts + checksums
         shell: bash

@@ -14,7 +14,6 @@ default-run = "breezer"
 
 [dependencies]
 breezer-plugin-api = { workspace = true }
-slint = { workspace = true }
 tokio = { workspace = true }
 reqwest = { workspace = true }
 serde = { workspace = true }
@@ -37,6 +36,21 @@ rodio = { workspace = true }
 [build-dependencies]
 slint-build = { workspace = true }
 
+# Slint backend: keep the exact current feature set on Linux (X11), and give
+# other OS the generic winit backend so the releases can be compiled/packaged
+# on Windows and macOS as well.
+[target.'cfg(target_os = "linux")'.dependencies]
+slint = { version = "1.18", default-features = false, features = [
+  "backend-winit-x11", "renderer-software", "compat-1-2", "std",
+  "accessibility", "image-default-formats",
+] }
+
+[target.'cfg(not(target_os = "linux"))'.dependencies]
+slint = { version = "1.18", default-features = false, features = [
+  "backend-winit", "renderer-software", "compat-1-2", "std",
+  "accessibility", "image-default-formats",
+] }
+
 [lib]
 name = "breezer"
 path = "src/lib.rs"
@@ -45,19 +59,14 @@ path = "src/lib.rs"
 name = "breezer"
 path = "src/main.rs"
 
-# cargo-packager (release bundling: AppImage/deb on Linux, dmg on macOS, nsis/msi on Windows)
+# cargo-packager (release bundling: AppImage/deb on Linux, dmg on macOS, nsis on Windows)
 [package.metadata.packager]
 product-name = "Breezer"
 identifier = "app.breezer.desktop"
-author = "Breezer Contributors"
+publisher = "Breezer Contributors"
 description = "Ultra-lightweight native Deezer client"
-license = "AGPL-3.0-or-later"
-
-[package.metadata.packager.linux]
-formats = ["deb", "appimage"]
-
-[package.metadata.packager.macos]
-formats = ["dmg"]
-
-[package.metadata.packager.windows]
-formats = ["nsis"]
+homepage = "https://github.com/Stananas/Breezer"
+icons = ["icons/icon.png", "icons/icon.icns", "icons/icon.ico"]
+# cargo-packager 0.11: one global list; the applicable formats are picked per
+# OS (appimage/deb on Linux, dmg on macOS, nsis on Windows).
+formats = ["appimage", "deb", "dmg", "nsis"]
