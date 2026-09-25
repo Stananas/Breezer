@@ -33,7 +33,7 @@ jobs:
         if: runner.os == 'Linux'
         run: |
           sudo apt-get update
-          sudo apt-get install -y libasound2-dev libxkbcommon-dev cmake clang
+          sudo apt-get install -y libasound2-dev libxkbcommon-dev cmake clang libfontconfig1-dev
 
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2

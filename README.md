@@ -45,7 +45,7 @@ A small, fast, native music player for **Deezer** — search, stream, browse you
 ## 🚀 Quick start
 
 ```bash
-# Requirements: Rust 1.85+, Linux: libasound2-dev libxkbcommon-dev cmake clang
+# Requirements: Rust 1.85+, Linux: libasound2-dev libxkbcommon-dev cmake clang libfontconfig1-dev
 cd software
 cargo run --release
 ```

@@ -44,7 +44,7 @@ Un lecteur musical **natif, petit et rapide** pour **Deezer** : recherche, strea
 ## 🚀 Démarrage rapide
 
 ```bash
-# Prérequis : Rust 1.85+, Linux : libasound2-dev libxkbcommon-dev cmake clang
+# Prérequis : Rust 1.85+, Linux : libasound2-dev libxkbcommon-dev cmake clang libfontconfig1-dev
 cd software
 cargo run --release
 ```

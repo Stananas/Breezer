@@ -19,7 +19,7 @@ jobs:
       - name: Install Linux deps (audio/windowing/build)
         run: |
           sudo apt-get update
-          sudo apt-get install -y libasound2-dev libxkbcommon-dev cmake clang
+          sudo apt-get install -y libasound2-dev libxkbcommon-dev cmake clang libfontconfig1-dev
       - uses: dtolnay/rust-toolchain@stable
         with:
           components: rustfmt, clippy

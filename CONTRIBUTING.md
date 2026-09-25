@@ -6,7 +6,7 @@ Thanks for helping out! 🎧 Everything below is short on purpose.
 
 ```bash
 # Linux system deps
-sudo apt-get install -y libasound2-dev libxkbcommon-dev cmake clang
+sudo apt-get install -y libasound2-dev libxkbcommon-dev cmake clang libfontconfig1-dev
 
 cd software
 cargo check -p breezer     # quick check
