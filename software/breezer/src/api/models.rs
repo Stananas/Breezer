@@ -114,9 +114,18 @@ impl DzUserData {
         let username = user
             .get("LOGIN")
             .and_then(|v| v.as_str())
+            .or_else(|| user.get("EMAIL").and_then(|v| v.as_str()))
             .or_else(|| user.get("NAME").and_then(|v| v.as_str()))
-            .unwrap_or_default()
-            .to_string();
+            .map(str::to_string)
+            .filter(|s| !s.is_empty())
+            // Some accounts expose no login/email/name — fall back to the id.
+            .unwrap_or_else(|| {
+                if user_id != 0 {
+                    user_id.to_string()
+                } else {
+                    String::new()
+                }
+            });
         let license_token = user
             .get("OPTIONS")
             .and_then(|o| o.get("license_token"))

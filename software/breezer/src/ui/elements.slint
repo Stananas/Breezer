@@ -55,14 +55,16 @@ export component BreezerSlider inherits Rectangle {
     property <float> ratio: root.dragging ? root.drag-ratio : root.progress;
     property <length> track-height: 4px;
     height: 26px;
-    // track
+    // track — explicit x:0 (free-positioned children default to centering!)
     Rectangle {
+        x: 0px;
         y: (root.height - root.track-height) / 2;
         height: root.track-height;
         width: root.width;
         border-radius: root.track-height / 2;
         background: root.palette.surface;
         Rectangle {
+            x: 0px;
             width: root.width * root.ratio;
             height: root.track-height;
             border-radius: root.track-height / 2;
