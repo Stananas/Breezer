@@ -19,6 +19,7 @@ component NavItem inherits Rectangle {
         mouse-cursor: pointer;
     }
     HorizontalLayout {
+        width: 100%;
         padding-left: 10px;
         spacing: 10px;
         alignment: center;
@@ -79,6 +80,7 @@ component PlaylistRow inherits Rectangle {
         mouse-cursor: pointer;
     }
     HorizontalLayout {
+        width: 100%;
         padding-left: 2px;
         spacing: 10px;
         alignment: center;
@@ -124,6 +126,7 @@ export component Sidebar inherits Rectangle {
     background: root.palette.surface;
 
     VerticalLayout {
+        width: 100%;
         padding: 16px;
         spacing: 8px;
         Text {
@@ -211,6 +214,8 @@ export component Sidebar inherits Rectangle {
                 font-size: 11px;
             }
         Flickable {
+        width: 100%;
+        height: 100%;
             vertical-stretch: 1;
             VerticalLayout {
                 spacing: 4px;
