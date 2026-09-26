@@ -17,7 +17,10 @@ Elysia) non-functional scaffold; `themes/` = theme manifests; `docs/`,
 Key links:
 - Repo: `https://github.com/Stananas/Breezer`
 - Releases live under tags **`breezer-vX.Y.Z`** (see §5).
-- Current version: `software/Cargo.toml` → `[workspace.package] version`.
+- Current version: `Cargo.toml` (repo root workspace) → `[workspace.package] version`.
+  The Cargo workspace is at the REPO ROOT (members: `software/breezer`,
+  `software/plugin-api`) — keep it that way: release-plz `git_only` needs the
+  workspace manifest at the git root.
 - Branding: violet `#a238ff`, font **Lexend** (embedded), icons in
   `software/breezer/src/ui/icons/`.
 

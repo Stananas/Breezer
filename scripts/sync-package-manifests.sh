@@ -7,8 +7,8 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
-VER=$(sed -n 's/^version = "\(.*\)"$/\1/p' software/Cargo.toml | head -1)
-[[ -n "$VER" ]] || { echo "cannot read version from software/Cargo.toml" >&2; exit 1; }
+VER=$(sed -n 's/^version = "\(.*\)"$/\1/p' Cargo.toml | head -1)
+[[ -n "$VER" ]] || { echo "cannot read version from Cargo.toml" >&2; exit 1; }
 echo "Breezer version: $VER"
 
 # --- AUR ---

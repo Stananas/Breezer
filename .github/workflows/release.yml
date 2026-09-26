@@ -41,13 +41,13 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
         with:
-          workspaces: software
+          workspaces: .
 
       - name: Install cargo-packager
         run: cargo install cargo-packager
 
       - name: Package
-        working-directory: software
+        working-directory: software/breezer
         env:
           NO_STRIP: "1"
         run: |
@@ -59,17 +59,17 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p dist
-          # Installers can land in either target/ or packager/ depending on the
-          # cargo-packager version — pick up every bundle we know how to build.
-          find software -maxdepth 4 -type f \( \
+          # Installers live under the root workspace target/ (or a packager/ dir
+          # depending on the cargo-packager version).
+          find target -maxdepth 4 -type f \( \
             -name "*.AppImage" -o -name "*.deb" -o -name "*.rpm" \
             -o -name "*.dmg" -o -name "*.msi" -o -name "*.exe" \) \
             -exec cp -n {} dist/ \; 2>/dev/null || true
           # Plain executable fallback (Linux/macOS) + Windows .exe, named
           # per-platform so the built-in auto-update can pick the right one
           # (updater::platform_key matches these names exactly).
-          cp -n software/target/release/breezer dist/breezer-${{ matrix.artifact }} 2>/dev/null || true
-          cp -n software/target/release/breezer.exe dist/breezer-${{ matrix.artifact }}.exe 2>/dev/null || true
+          cp -n target/release/breezer dist/breezer-${{ matrix.artifact }} 2>/dev/null || true
+          cp -n target/release/breezer.exe dist/breezer-${{ matrix.artifact }}.exe 2>/dev/null || true
           find dist -type f -exec sha256sum {} + > dist/SHA256SUMS.txt
           echo "--- artifacts ---"
           ls -la dist/

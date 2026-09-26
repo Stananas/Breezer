@@ -1,7 +1,7 @@
 [workspace]
 resolver = "2"
-members = ["breezer", "plugin-api"]
-default-members = ["breezer"]
+members = ["software/breezer", "software/plugin-api"]
+default-members = ["software/breezer"]
 
 [workspace.package]
 version = "0.1.0"
@@ -13,7 +13,7 @@ authors = ["Breezer Contributors"]
 homepage = "https://github.com/Stananas/Breezer"
 
 [workspace.dependencies]
-breezer-plugin-api = { path = "plugin-api" }
+breezer-plugin-api = { path = "software/plugin-api" }
 
 slint = { version = "1.18", default-features = false, features = [
   "backend-winit-x11", "renderer-software", "compat-1-2", "std",

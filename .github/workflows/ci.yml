@@ -25,13 +25,13 @@ jobs:
           components: rustfmt, clippy
       - uses: Swatinem/rust-cache@v2
         with:
-          workspaces: software
+          workspaces: .
       - name: rustfmt
-        run: cargo fmt --all --manifest-path software/Cargo.toml -- --check
+        run: cargo fmt --all -- --check
       - name: clippy
-        run: cargo clippy --workspace --manifest-path software/Cargo.toml -- -D warnings
+        run: cargo clippy --workspace -- -D warnings
       - name: test
-        run: cargo test --workspace --manifest-path software/Cargo.toml
+        run: cargo test --workspace
       - name: validate themes JSON
         run: python3 -m json.tool themes/breezer-dark/theme.json >/dev/null \
                && python3 -m json.tool themes/breezer-light/theme.json >/dev/null \
