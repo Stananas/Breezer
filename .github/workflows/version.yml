@@ -8,7 +8,11 @@ name: Versioning (auto bump + tag)
 on:
   push:
     branches: [main]
-    paths: ["software/**"]
+    paths:
+      - "software/**"
+      - "Cargo.toml"
+      - "scripts/**"
+      - ".github/workflows/version.yml"
 
 permissions:
   contents: write

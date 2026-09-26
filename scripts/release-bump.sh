@@ -54,6 +54,9 @@ if [[ -z "$PUSH_TOKEN" ]]; then
   exit 0
 fi
 AUTH="AUTHORIZATION: basic $(printf 'x-access-token:%s' "$PUSH_TOKEN" | base64 | tr -d '\n')"
+# checkout configures its own Authorization header — drop it to avoid a
+# "Duplicate header" push error, then use ours for the two pushes.
+git config --unset-all http.https://github.com/.extraheader || true
 git -c "http.https://github.com/.extraheader=$AUTH" push origin "HEAD:main"
 git -c "http.https://github.com/.extraheader=$AUTH" push origin "breezer-v$NEW"
 echo "released breezer-v$NEW"
