@@ -1,0 +1,11 @@
+# release-plz configuration.
+# We never publish to crates.io — releases happen on GitHub only.
+
+[workspace]
+changelog_path = "CHANGELOG.md"
+
+[package.breezer]
+publish = false
+
+[package.breezer-plugin-api]
+publish = false

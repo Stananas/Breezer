@@ -55,9 +55,21 @@ pub async fn check(http: &reqwest::Client) -> Result<Option<Release>> {
     }
     let body: serde_json::Value = resp.json().await?;
 
-    let tag = body["tag_name"]
+    // With a multi-crate workspace release-plz publishes one release per crate
+    // (`breezer-vX.Y.Z`, `breezer-plugin-api-vX.Y.Z`). Pick the newest one that
+    // looks like OUR releases (`breezer-v*`, legacy `v*`), never the plugin one.
+    let releases = body.as_array().cloned().unwrap_or_default();
+    let Some(rel) = releases.iter().find(|r| {
+        let t = r["tag_name"].as_str().unwrap_or_default();
+        t.starts_with("breezer-v") || (t.starts_with('v') && !t.starts_with("breezer-plugin-api-"))
+    }) else {
+        return Ok(None);
+    };
+
+    let tag = rel["tag_name"]
         .as_str()
         .unwrap_or_default()
+        .trim_start_matches("breezer-v")
         .trim_start_matches('v');
     let latest = match Version::parse(tag) {
         Ok(v) => v,
@@ -67,7 +79,7 @@ pub async fn check(http: &reqwest::Client) -> Result<Option<Release>> {
         return Ok(None);
     }
 
-    let assets = match body["assets"].as_array() {
+    let assets = match rel["assets"].as_array() {
         Some(list) => list
             .iter()
             .filter_map(|a| {
@@ -82,11 +94,8 @@ pub async fn check(http: &reqwest::Client) -> Result<Option<Release>> {
 
     Ok(Some(Release {
         version: latest,
-        notes: body["body"].as_str().unwrap_or_default().to_string(),
-        url: body["html_url"]
-            .as_str()
-            .unwrap_or(RELEASES_URL)
-            .to_string(),
+        notes: rel["body"].as_str().unwrap_or_default().to_string(),
+        url: rel["html_url"].as_str().unwrap_or(RELEASES_URL).to_string(),
         assets,
     }))
 }
