@@ -1,7 +1,0 @@
-# release-plz configuration.
-# GitHub-only releases: versions come from git tags, never crates.io.
-# (git_only skips `cargo publish` entirely.)
-
-[workspace]
-git_only = true
-pr_labels = ["release"]

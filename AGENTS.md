@@ -84,35 +84,29 @@ either via `stream_rx` (streaming bytes) or by writing shared caches:
   ALB_PICTURE). `recent_played(limit)` / `last_played()` (first).
 - Chart: `api.deezer.com/chart/0/tracks` (public). Search: `/search?q=`.
 
-## 5. Versioning / releases (automated — keep it green)
+## 5. Versioning / releases — fully automatic (no manual steps)
 
-Pipeline (proven end-to-end) — **one manual step: merge the release PR**:
+Pipeline (auto):
+- push main (`software/**`) → `ci.yml` (fmt + clippy -D warnings + test +
+  themes) AND `version.yml` → `scripts/release-bump.sh`: if there are `feat*`/
+  `fix*` Conventional Commits since the last `breezer-v*` tag, it bumps the
+  workspace version in the root `Cargo.toml` (feat → minor, fix → patch),
+  commits `chore(release): vX.Y.Z`, creates the **annotated tag `breezer-vX.Y.Z`**
+  and pushes main + tag. No PR, no release-plz.
+- tag `breezer-v*` / `v*` → `release.yml`: cargo-packager installers on 3 OS +
+  **SLSA attestation** + SHA256SUMS → GitHub Release (assets auto-updated).
 
-| Event | Workflow | Effect |
-|---|---|---|
-| push main (`feat`/`fix`) | `ci.yml` | fmt + clippy -D warnings + test + themes JSON |
-| push main | `version.yml` | `release-plz` action `command: release-pr` → opens/updates the version PR (+ CHANGELOG per package) |
-| **merge** that PR | `release-pr.yml` `command: release` | creates tags **`breezer-vX.Y.Z`** (+ `breezer-plugin-api-v…`) and GitHub Releases |
-| tag `breezer-v*` / `v*` | `release.yml` | build installers (cargo-packager, 3 OS) + **SLSA attestation** + SHA256SUMS |
-
-**release-plz config** (`software/release-plz.toml`): `git_only = true`
-(versions from git tags, **no crates.io**, cargo publish disabled — mandatory),
-`pr_labels = ["release"]`. Gotchas learned the hard way:
-- `release-plz-action@v0.5` only accepts commands `release-pr` / `release`
-  (there is **no `update`**). `--dry-run` doesn't exist.
-- Adding commits to main while a release PR is out just updates that PR.
-- If the local branch and origin/main diverge (e.g. squash-merged PR), the
-  `release` tag creation fails with 422 "Could not verify object" — `git pull
-  --rebase origin main` first, then `release-plz release` (run from
-  `software/` with `--git-token "$(gh auth token)"`).
-- Repo Actions default workflow permissions must be `write` (was `read` →
-  bot couldn't open PRs). Check: `gh api reposs/-/actions/permissions/workflow`.
-- Multi-crate workspace ⇒ tags are `breezer-vX.Y.Z`, so `release.yml` triggers
-  on `breezer-v*` and the auto-updater (§6) selects releases whose tag starts
-  with `breezer-v`.
-
-Conventional Commits (release-plz reads them): `feat*` → minor, `fix*` →
-patch; both must include a short body. `chore/docs` don't bump.
+Notes / gotchas:
+- The workspace Cargo manifest lives at the **repo root** (`Cargo.toml`,
+  members `software/breezer`, `software/plugin-api`) — required for the
+  tooling; keep it there. `.gitignore` must cover `target/` at the ROOT
+  (a `git add -A` after moving the workspace would otherwise commit build
+  artifacts and GitHub rejects the push via LFS limits).
+- `release-plz` was used first but its `release-pr` is buggy for
+  `git_only` + subdir workspaces (worktree `cargo metadata` errors) — do NOT
+  reintroduce it for the PR step. The manual one-shot release path is
+  `release-plz release --manifest-path Cargo.toml --git-token "$(gh auth token)"` from the repo root (git_only config at root).
+- Updater picks releases whose tag starts with `breezer-v` (§6).
 
 ## 6. Auto-update (the app replaces itself)
 

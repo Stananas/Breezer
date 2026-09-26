@@ -1,10 +1,9 @@
-name: Versioning (release-plz)
+name: Versioning (auto bump + tag)
 
-# Semantic versioning & changelog from Conventional Commits.
-# On every push to main (software changes) this workflow opens or updates a
-# "release" PR that bumps the version + appends the changelog.
-# Merging that PR then triggers release-pr.yml, which tags vX.Y.Z and creates
-# the GitHub Release (building the installers happens in release.yml).
+# On every push to main (software changes): if there are feat/fix Conventional
+# Commits since the last `breezer-v*` tag, auto-bump the workspace version in
+# Cargo.toml, tag `breezer-vX.Y.Z` and push both. release.yml (triggered by the
+# tag) then builds the installers — fully automatic, no manual PR to merge.
 
 on:
   push:
@@ -13,23 +12,17 @@ on:
 
 permissions:
   contents: write
-  pull-requests: write
 
 jobs:
-  release-plz:
+  bump:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-      - uses: dtolnay/rust-toolchain@stable
-      - uses: Swatinem/rust-cache@v2
-        with:
-          workspaces: .
-      - name: Run release-plz (open/update release PRs)
-        uses: MarcoIeni/release-plz-action@v0.5
-        with:
-          command: release-pr
-          manifest_path: Cargo.toml
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Configure git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+      - name: Auto-bump + tag
+        run: bash scripts/release-bump.sh
