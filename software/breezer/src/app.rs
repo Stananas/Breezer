@@ -26,7 +26,7 @@ use tokio::sync::mpsc;
 // ---------------------------------------------------------------------------
 
 #[derive(Clone)]
-enum Cmd {
+pub(crate) enum Cmd {
     Search(String),
     Connect(String),
     OpenBrowser,
@@ -35,6 +35,7 @@ enum Cmd {
     PlayIndex(usize),
     PlaylistSelected(String),
     Toggle,
+    Stop,
     Prev,
     Next,
     Seek(f32),
@@ -437,6 +438,10 @@ fn run_gui() -> Result<()> {
     let rt = tokio::runtime::Runtime::new()?;
     let (cmd_tx, cmd_rx) = mpsc::channel::<Cmd>(128);
     let (evt_tx, evt_rx) = mpsc::channel::<Evt>(128);
+
+    // MPRIS media-service: expose the player to desktop media widgets.
+    #[cfg(target_os = "linux")]
+    let mpris_tx = crate::mpris::start(cmd_tx.clone());
 
     // -- UI → services callbacks -------------------------------------------
     use slint::SharedString as Str;
@@ -1159,6 +1164,24 @@ fn run_gui() -> Result<()> {
                             player.toggle();
                         }
                         let _ = evt_tx2.send(Evt::Playing(player.is_playing())).await;
+                        #[cfg(target_os = "linux")]
+                        {
+                            let s = if !player.has_loaded() {
+                                crate::mpris::st::STOPPED
+                            } else if player.is_playing() {
+                                crate::mpris::st::PLAYING
+                            } else {
+                                crate::mpris::st::PAUSED
+                            };
+                            let _ = mpris_tx.try_send(crate::mpris::MprisMsg::Status(s));
+                        }
+                    }
+                    Cmd::Stop => {
+                        player.stop();
+                        let _ = evt_tx2.send(Evt::Playing(false)).await;
+                        #[cfg(target_os = "linux")]
+                        let _ = mpris_tx
+                            .try_send(crate::mpris::MprisMsg::Status(crate::mpris::st::STOPPED));
                     }
                     Cmd::Prev => {
                         if let Some(card) = queue.prev().cloned() {
@@ -1200,6 +1223,8 @@ fn run_gui() -> Result<()> {
                         let _ = evt_tx2
                             .send(Evt::VolumeLabel(format!("{} %", v.round() as u32)))
                             .await;
+                        #[cfg(target_os = "linux")]
+                        let _ = mpris_tx.try_send(crate::mpris::MprisMsg::Volume(v as f64 / 100.0));
                         if let Err(e) = cfg.save() {
                             log::warn!("could not save config: {e}");
                         }
@@ -1350,17 +1375,33 @@ fn run_gui() -> Result<()> {
                     }
                 }
                     }
-                    Some((_card, bytes)) = stream_rx.recv() => {
+                    Some((card, bytes)) = stream_rx.recv() => {
                         // A buffered stream is ready — feed it to the audio
                         // engine (off the fetch path: navigation stays snappy).
                         match player.play_mp3_bytes(bytes) {
                             Ok(()) => {
                                 let _ = evt_tx2.send(Evt::Playing(true)).await;
+                                #[cfg(target_os = "linux")]
+                                {
+                                    let _ = mpris_tx.try_send(crate::mpris::MprisMsg::Track {
+                                        title: card.title.clone(),
+                                        artist: card.artist.clone(),
+                                        album: card.album.clone(),
+                                        art_url: card.cover_url.clone(),
+                                        duration_secs: card.duration as i64,
+                                        id: card.id as i64,
+                                    });
+                                    let _ = mpris_tx
+                                        .try_send(crate::mpris::MprisMsg::Status(crate::mpris::st::PLAYING));
+                                }
                             }
                             Err(e) => {
                                 let msg =
                                     i18n.t_args("player.stream.error", &[("error", &e.to_string())]);
                                 let _ = evt_tx2.send(Evt::Status(msg)).await;
+                                #[cfg(target_os = "linux")]
+                                let _ = mpris_tx
+                                    .try_send(crate::mpris::MprisMsg::Status(crate::mpris::st::STOPPED));
                             }
                         }
                     }
@@ -1370,13 +1411,15 @@ fn run_gui() -> Result<()> {
                         if player.is_playing() {
                             if let Some(pos) = player.position_secs() {
                                 let _ = evt_tx2.send(Evt::Position(pos)).await;
+                                #[cfg(target_os = "linux")]
+                                let _ = mpris_tx.try_send(crate::mpris::MprisMsg::Position(pos as i64));
                                 let _ = evt_tx2
                                     .send(Evt::PositionLabel(fmt_duration(pos)))
                                     .await;
                             }
                             if player.ended() {
                                 player.stop();
-                                advance_playback(
+                                let played = advance_playback(
                                     &mut queue,
                                     shuffle_on,
                                     repeat_mode,
@@ -1388,6 +1431,14 @@ fn run_gui() -> Result<()> {
                                     &stream_tx,
                                 )
                                 .await;
+                                if !played {
+                                    // Queue exhausted (or repeat handled it) —
+                                    // media widgets should see it stopped.
+                                    #[cfg(target_os = "linux")]
+                                    let _ = mpris_tx.try_send(crate::mpris::MprisMsg::Status(
+                                        crate::mpris::st::STOPPED,
+                                    ));
+                                }
                             }
                         }
                     }

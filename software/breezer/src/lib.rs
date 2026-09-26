@@ -10,5 +10,8 @@ pub mod player;
 pub mod plugins;
 pub mod updater;
 
+#[cfg(target_os = "linux")]
+mod mpris;
+
 // Embeds the compiled Slint UI (built by `build.rs` from `src/ui/`).
 slint::include_modules!();
