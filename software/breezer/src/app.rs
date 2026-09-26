@@ -959,6 +959,44 @@ fn run_gui() -> Result<()> {
                                 }
                             });
                         }
+
+                        // Refresh the Home "recently played" shelf on entry
+                        // (fresh history from Deezer, not just the boot cache).
+                        if v == "home" {
+                            let api2 = api.clone();
+                            let covers2 = covers.clone();
+                            let tx = evt_tx2.clone();
+                            let rc = recent_cards.clone();
+                            tokio::spawn(async move {
+                                match api2.recent_played(12).await {
+                                    Ok(recent) => {
+                                        let urls: Vec<String> = recent
+                                            .iter()
+                                            .map(|t| t.album.cover_medium.clone())
+                                            .collect();
+                                        covers2.ensure(&urls).await;
+                                        let cards: Vec<TrackCard> = recent
+                                            .into_iter()
+                                            .map(|t| TrackCard {
+                                                id: t.id as i32,
+                                                title: t.title,
+                                                artist: t.artist.name,
+                                                album: t.album.title,
+                                                cover_url: t.album.cover_medium,
+                                                duration: t.duration as f32,
+                                            })
+                                            .collect();
+                                        if let Ok(mut g) = rc.lock() {
+                                            *g = cards.clone();
+                                        }
+                                        if !cards.is_empty() {
+                                            let _ = tx.send(Evt::Recents(cards)).await;
+                                        }
+                                    }
+                                    Err(e) => log::debug!("recent refresh failed: {e}"),
+                                }
+                            });
+                        }
                     }
 
                     Cmd::PlaylistSelected(pid) => {
@@ -1065,6 +1103,7 @@ fn run_gui() -> Result<()> {
                             &i18n,
                             &plugins,
                             &stream_tx,
+                            &recent_cards,
                         )
                         .await;
                     }
@@ -1082,6 +1121,7 @@ fn run_gui() -> Result<()> {
                                 &i18n,
                                 &plugins,
                                 &stream_tx,
+                                &recent_cards,
                             )
                             .await;
                         }
@@ -1101,6 +1141,7 @@ fn run_gui() -> Result<()> {
                                 &i18n,
                                 &plugins,
                                 &stream_tx,
+                                &recent_cards,
                             )
                             .await;
                         }
@@ -1499,6 +1540,7 @@ async fn play_card(
     i18n: &I18n,
     plugins: &PluginRegistry,
     stream_tx: &mpsc::Sender<(TrackCard, Vec<u8>)>,
+    recent_cards: &Arc<Mutex<Vec<TrackCard>>>,
 ) {
     let (pos, card) = {
         let g = match cards.lock() {
@@ -1520,6 +1562,18 @@ async fn play_card(
         artist: card.artist.clone(),
         album: card.album.clone(),
     });
+
+    // Keep the Home "recently played" shelf fresh in-session: the played
+    // track moves to the front of the recents (dedup + capped).
+    if let Ok(mut rc) = recent_cards.lock() {
+        rc.retain(|c| c.id != card.id);
+        rc.insert(0, card.clone());
+        rc.truncate(12);
+    }
+    let fresh = recent_cards.lock().map(|g| g.clone()).unwrap_or_default();
+    if !fresh.is_empty() {
+        let _ = evt_tx.send(Evt::Recents(fresh)).await;
+    }
 
     if cfg.arl.is_none() {
         let _ = evt_tx
