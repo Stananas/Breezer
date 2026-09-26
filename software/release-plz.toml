@@ -4,5 +4,4 @@
 
 [workspace]
 git_only = true
-changelog_path = "CHANGELOG.md"
 pr_labels = ["release"]
