@@ -1538,7 +1538,11 @@ fn run_gui(update_applied: bool) -> Result<()> {
                     }
                 }
                 Ok(None) => {
-                    let msg = update_i18n.t("update.none");
+                    let msg = format!(
+                        "Breezer v{} · {}",
+                        env!("CARGO_PKG_VERSION"),
+                        update_i18n.t("update.none")
+                    );
                     let w = weak.clone();
                     let _ = slint::invoke_from_event_loop(move || {
                         if let Some(ui) = w.upgrade() {

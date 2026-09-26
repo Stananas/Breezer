@@ -28,3 +28,4 @@ jobs:
         run: bash scripts/release-bump.sh
         env:
           RELEASE_TOKEN: ${{ secrets.RELEASE_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
