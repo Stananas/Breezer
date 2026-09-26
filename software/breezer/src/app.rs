@@ -193,11 +193,17 @@ pub fn run() -> Result<()> {
 
     // Auto-update: apply a previously downloaded release before the GUI starts
     // (it takes effect at next launch when the binary gets replaced in place).
-    match crate::updater::apply_latest_ready() {
-        Ok(true) => log::info!("pending update applied — will run the new version on next start"),
-        Ok(false) => {}
-        Err(e) => log::warn!("could not apply pending update: {e}"),
-    }
+    let update_applied = match crate::updater::apply_latest_ready() {
+        Ok(true) => {
+            log::info!("pending update applied — will run the new version on next start");
+            true
+        }
+        Ok(false) => false,
+        Err(e) => {
+            log::warn!("could not apply pending update: {e}");
+            false
+        }
+    };
 
     let mut args = std::env::args().skip(1);
     while let Some(a) = args.next() {
@@ -224,7 +230,7 @@ pub fn run() -> Result<()> {
             _ => {}
         }
     }
-    run_gui()
+    run_gui(update_applied)
 }
 
 fn init_logger() {
@@ -370,7 +376,7 @@ fn run_stream_test(track_id: u64) -> Result<()> {
 // GUI
 // ---------------------------------------------------------------------------
 
-fn run_gui() -> Result<()> {
+fn run_gui(update_applied: bool) -> Result<()> {
     let cfg = Config::load();
     let i18n = cfg.i18n();
     // Snapshot for the fire-and-forget update check (i18n is moved into the
@@ -407,10 +413,16 @@ fn run_gui() -> Result<()> {
     }
     window.set_current_view(SharedString::from("home"));
     window.set_view_title(SharedString::from(i18n.t("nav.home")));
-    window.set_version_status(SharedString::from(format!(
-        "Breezer v{}",
-        env!("CARGO_PKG_VERSION")
-    )));
+    let version_status = if update_applied {
+        format!(
+            "Breezer v{} · {}",
+            env!("CARGO_PKG_VERSION"),
+            i18n.t("update.applied")
+        )
+    } else {
+        format!("Breezer v{}", env!("CARGO_PKG_VERSION"))
+    };
+    window.set_version_status(SharedString::from(version_status));
     window.set_search_status(SharedString::from(i18n.t("search.prompt")));
     window.set_volume(cfg.volume);
     window.set_volume_label(SharedString::from(format!(

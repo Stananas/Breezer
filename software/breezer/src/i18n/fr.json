@@ -32,6 +32,7 @@
   "update.download.failed": "Échec du téléchargement de la mise à jour : {error}",
   "update.install.failed": "Impossible d'installer la mise à jour : {error}",
   "update.ready": "Mise à jour appliquée — redémarrage…",
+  "update.applied": "Mise à jour appliquée — redémarrez pour l'appliquer.",
   "playlist.stats": "{count} titres · {duration}",
   "nav.home": "Accueil",
   "nav.explore": "Explorer",
