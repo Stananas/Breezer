@@ -44,6 +44,10 @@ sed -i "s/^version = \"$CUR\"$/version = \"$NEW\"/" Cargo.toml
 git add Cargo.toml
 git commit -q -m "chore(release): v$NEW — auto-bump"
 git tag -a "breezer-v$NEW" -m "Breezer v$NEW (auto)"
-git push origin "HEAD:main"
-git push origin "breezer-v$NEW"
+# Push with a PAT when available: tag pushes made with GITHUB_TOKEN do NOT
+# trigger other workflows (anti-recursion), so automation needs a fine-grained
+# PAT (Contents: write) in the RELEASE_TOKEN secret for full autonomy.
+PUSH_TOKEN="${RELEASE_TOKEN:-$GITHUB_TOKEN}"
+git -c "http.https://github.com/.extraheader=AUTHORIZATION: basic $(printf 'x-access-token:%s' "$PUSH_TOKEN" | base64 | tr -d '\n')" push origin "HEAD:main"
+git -c "http.https://github.com/.extraheader=AUTHORIZATION: basic $(printf 'x-access-token:%s' "$PUSH_TOKEN" | base64 | tr -d '\n')" push origin "breezer-v$NEW"
 echo "released breezer-v$NEW"

@@ -26,3 +26,5 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
       - name: Auto-bump + tag
         run: bash scripts/release-bump.sh
+        env:
+          RELEASE_TOKEN: ${{ secrets.RELEASE_TOKEN }}

@@ -107,6 +107,12 @@ Notes / gotchas:
   reintroduce it for the PR step. The manual one-shot release path is
   `release-plz release --manifest-path Cargo.toml --git-token "$(gh auth token)"` from the repo root (git_only config at root).
 - Updater picks releases whose tag starts with `breezer-v` (§6).
+- The auto-bump pushes main+tag; to let that push trigger `release.yml`
+  (GitHub does NOT fire workflows for pushes made with `GITHUB_TOKEN`), the
+  repo needs a fine-grained **PAT** (Contents: write) in the
+  `RELEASE_TOKEN` secret (version.yml passes it to the script; falls back to
+  GITHUB_TOKEN otherwise). Without it, manually re-push the tag
+  (`git push origin refs/tags/breezer-vX.Y.Z`) to kick the build.
 
 ## 6. Auto-update (the app replaces itself)
 
