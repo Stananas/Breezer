@@ -696,8 +696,12 @@ fn run_gui() -> Result<()> {
             let plugins = PluginRegistry::with_system();
             let last_cards: Arc<Mutex<Vec<TrackCard>>> = Arc::new(Mutex::new(Vec::new()));
             let recent_cards: Arc<Mutex<Vec<TrackCard>>> = Arc::new(Mutex::new(Vec::new()));
-            let mut shuffle_on = false;
-            let mut repeat_mode = RepeatMode::Off;
+            let mut shuffle_on = cfg.shuffle;
+            let mut repeat_mode = match cfg.repeat_mode {
+                1 => RepeatMode::All,
+                2 => RepeatMode::One,
+                _ => RepeatMode::Off,
+            };
 
             // Seed the Home page with Deezer's trending tracks (public chart),
             // in the background so the UI is responsive from the start.
@@ -1206,10 +1210,18 @@ fn run_gui() -> Result<()> {
                     }
                     Cmd::Shuffle => {
                         shuffle_on = !shuffle_on;
+                        cfg.shuffle = shuffle_on;
+                        if let Err(e) = cfg.save() {
+                            log::warn!("could not save config: {e}");
+                        }
                         let _ = evt_tx2.send(Evt::Shuffle(shuffle_on)).await;
                     }
                     Cmd::Repeat => {
                         repeat_mode = repeat_mode.cycle();
+                        cfg.repeat_mode = repeat_mode.as_i32();
+                        if let Err(e) = cfg.save() {
+                            log::warn!("could not save config: {e}");
+                        }
                         let _ = evt_tx2.send(Evt::Repeat(repeat_mode.as_i32())).await;
                     }
                     Cmd::Seek(v) => {

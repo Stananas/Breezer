@@ -312,6 +312,11 @@ pub struct Config {
     /// Global UI zoom (Ctrl + / Ctrl - / Ctrl 0), 1.0 = default.
     #[serde(default = "zoom_default")]
     pub zoom: f32,
+    /// Last shuffle / repeat state (restored at boot).
+    #[serde(default)]
+    pub shuffle: bool,
+    #[serde(default = "repeat_mode_default")]
+    pub repeat_mode: i32,
 }
 
 fn time_format_default() -> String {
@@ -320,6 +325,10 @@ fn time_format_default() -> String {
 
 fn zoom_default() -> f32 {
     1.0
+}
+
+fn repeat_mode_default() -> i32 {
+    0
 }
 
 impl Default for Config {
@@ -335,6 +344,8 @@ impl Default for Config {
             onboarding_done: false,
             theme_overrides: HashMap::new(),
             zoom: 1.0,
+            shuffle: false,
+            repeat_mode: 0,
         }
     }
 }
