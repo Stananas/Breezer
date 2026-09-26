@@ -371,80 +371,95 @@ impl ApiClient {
     pub async fn playlist_tracks(&self, playlist_id: &str) -> Result<Vec<models::Track>> {
         let mut out: Vec<models::Track> = Vec::new();
         let mut seen = std::collections::HashSet::new();
-        let page_size = 200usize;
         let mut start = 0usize;
-
         for _page in 0..10 {
-            let payload = serde_json::json!({
-                "playlist_id": playlist_id,
-                "lang": "en",
-                "header": true,
-                "start": start,
-                "nb": page_size,
-            });
-            let resp = self.gateway_call("deezer.pagePlaylist", payload).await?;
-            let tracks = resp["results"]["SONGS"]["data"]
-                .as_array()
-                .or_else(|| resp["results"]["DATA"]["SONGS"]["data"].as_array())
-                .or_else(|| resp["results"]["tracks"]["data"].as_array())
-                .or_else(|| resp["results"]["TRACKS"]["data"].as_array())
-                .or_else(|| resp["results"]["tracks"].as_array())
-                .or_else(|| resp["results"]["SONGS"].as_array())
-                .cloned()
-                .unwrap_or_default();
-
+            let tracks = self.playlist_tracks_page(playlist_id, start, 200).await?;
             let before = out.len();
-            for track in tracks {
-                let id = track["SNG_ID"]
-                    .as_u64()
-                    .or_else(|| track["SNG_ID"].as_str().and_then(|s| s.parse::<u64>().ok()))
-                    .or_else(|| track["id"].as_u64())
-                    .or_else(|| track["id"].as_str().and_then(|s| s.parse::<u64>().ok()))
-                    .unwrap_or(0);
-                if id == 0 || !seen.insert(id) {
-                    continue;
+            for t in tracks {
+                if seen.insert(t.id) {
+                    out.push(t);
                 }
-                let title = track["SNG_TITLE"]
-                    .as_str()
-                    .or_else(|| track["title"].as_str())
-                    .unwrap_or("Unknown track")
-                    .to_string();
-                let artist = track["ART_NAME"]
-                    .as_str()
-                    .unwrap_or("Unknown artist")
-                    .to_string();
-                let album_title = track["ALB_TITLE"].as_str().unwrap_or_default().to_string();
-                let cover = track["ALB_PICTURE"]
-                    .as_str()
-                    .filter(|s| !s.is_empty())
-                    .map(|hash| {
-                        format!("https://e-cdns-images.dzcdn.net/images/cover/{hash}/250x250-000000-80-0-0.jpg")
-                    })
-                    .unwrap_or_default();
-                let duration = track["DURATION"]
-                    .as_u64()
-                    .or_else(|| {
-                        track["DURATION"]
-                            .as_str()
-                            .and_then(|s| s.parse::<u64>().ok())
-                    })
-                    .unwrap_or(0) as u32;
-                out.push(models::Track {
-                    id,
-                    title,
-                    duration,
-                    artist: models::Artist { name: artist },
-                    album: models::Album {
-                        title: album_title,
-                        cover_medium: cover,
-                        cover_big: String::new(),
-                    },
-                });
             }
             if out.len() == before {
                 break;
             }
-            start += page_size;
+            start += 200;
+        }
+        Ok(out)
+    }
+
+    /// One page of a playlist (the lazy-loading primitive: render the first
+    /// N tracks fast, load the rest in the background).
+    pub async fn playlist_tracks_page(
+        &self,
+        playlist_id: &str,
+        start: usize,
+        nb: usize,
+    ) -> Result<Vec<models::Track>> {
+        let payload = serde_json::json!({
+            "playlist_id": playlist_id,
+            "lang": "en",
+            "header": true,
+            "start": start,
+            "nb": nb,
+        });
+        let resp = self.gateway_call("deezer.pagePlaylist", payload).await?;
+        let tracks = resp["results"]["SONGS"]["data"]
+            .as_array()
+            .or_else(|| resp["results"]["DATA"]["SONGS"]["data"].as_array())
+            .or_else(|| resp["results"]["tracks"]["data"].as_array())
+            .or_else(|| resp["results"]["TRACKS"]["data"].as_array())
+            .or_else(|| resp["results"]["tracks"].as_array())
+            .or_else(|| resp["results"]["SONGS"].as_array())
+            .cloned()
+            .unwrap_or_default();
+        let mut out: Vec<models::Track> = Vec::with_capacity(tracks.len());
+        for track in tracks {
+            let id = track["SNG_ID"]
+                .as_u64()
+                .or_else(|| track["SNG_ID"].as_str().and_then(|s| s.parse::<u64>().ok()))
+                .or_else(|| track["id"].as_u64())
+                .or_else(|| track["id"].as_str().and_then(|s| s.parse::<u64>().ok()))
+                .unwrap_or(0);
+            if id == 0 {
+                continue;
+            }
+            let title = track["SNG_TITLE"]
+                .as_str()
+                .or_else(|| track["title"].as_str())
+                .unwrap_or("Unknown track")
+                .to_string();
+            let artist = track["ART_NAME"]
+                .as_str()
+                .unwrap_or("Unknown artist")
+                .to_string();
+            let album_title = track["ALB_TITLE"].as_str().unwrap_or_default().to_string();
+            let cover = track["ALB_PICTURE"]
+                .as_str()
+                .filter(|s| !s.is_empty())
+                .map(|hash| {
+                    format!("https://e-cdns-images.dzcdn.net/images/cover/{hash}/250x250-000000-80-0-0.jpg")
+                })
+                .unwrap_or_default();
+            let duration = track["DURATION"]
+                .as_u64()
+                .or_else(|| {
+                    track["DURATION"]
+                        .as_str()
+                        .and_then(|s| s.parse::<u64>().ok())
+                })
+                .unwrap_or(0) as u32;
+            out.push(models::Track {
+                id,
+                title,
+                duration,
+                artist: models::Artist { name: artist },
+                album: models::Album {
+                    title: album_title,
+                    cover_medium: cover,
+                    cover_big: String::new(),
+                },
+            });
         }
         Ok(out)
     }

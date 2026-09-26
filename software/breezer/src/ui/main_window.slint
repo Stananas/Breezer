@@ -149,16 +149,37 @@ component DockShell inherits Rectangle {
         }
         capture-key-pressed(key) => {
             if key.modifiers.control {
-                if key.text == "+" || key.text == "=" || key.text == "add" {
+                if key.text == "+" || key.text == "=" || key.text == "add"
+                    || key.text == "kp-add" || key.text == "numadd" {
                     root.zoom-in-requested();
                     return accept;
                 }
-                if key.text == "-" || key.text == "subtract" || key.text == "minus" {
+                if key.text == "-" || key.text == "subtract" || key.text == "minus"
+                    || key.text == "kp-subtract" || key.text == "numsubtract" {
                     root.zoom-out-requested();
                     return accept;
                 }
-                if key.text == "0" {
+                if key.text == "0" || key.text == "numpad0" || key.text == "zero" {
                     root.zoom-reset-requested();
+                    return accept;
+                }
+            }
+            return reject;
+        }
+        // Fallback: also react when the key lands on the focused element
+        // itself (focus might sit outside the sink on some compositors).
+        key-pressed(key) => {
+            if key.modifiers.control {
+                if key.text == "+" || key.text == "=" || key.text == "0" {
+                    if key.text == "+" || key.text == "=" {
+                        root.zoom-in-requested();
+                    } else {
+                        root.zoom-reset-requested();
+                    }
+                    return accept;
+                }
+                if key.text == "-" {
+                    root.zoom-out-requested();
                     return accept;
                 }
             }
@@ -324,11 +345,15 @@ component DockShell inherits Rectangle {
             current-track: root.current-track;
             shuffle-on: root.shuffle-on;
             repeat-mode: root.repeat-mode;
+            ui-zoom: root.ui-zoom;
             toggle-requested => root.toggle-requested();
             prev-requested => root.prev-requested();
             next-requested => root.next-requested();
             shuffle-requested => root.shuffle-requested();
             repeat-requested => root.repeat-requested();
+            zoom-in-requested => root.zoom-in-requested();
+            zoom-out-requested => root.zoom-out-requested();
+            zoom-reset-requested => root.zoom-reset-requested();
             seek-requested(v) => root.seek-requested(v);
             volume-requested(v) => root.volume-requested(v);
         }
@@ -418,6 +443,8 @@ export component MainWindow inherits Window {
     title: @tr("Breezer");
     preferred-width: 1180px;
     preferred-height: 760px;
+    min-width: 940px;
+    min-height: 620px;
     background: self.palette.bg;
     default-font-family: "Lexend";
 

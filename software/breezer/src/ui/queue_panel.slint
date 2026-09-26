@@ -21,6 +21,7 @@ component QueueRow inherits Rectangle {
         Text {
             text: root.current ? "▶" : "♫";
             width: 26px;
+            vertical-alignment: center;
             color: root.current ? root.palette.primary : root.palette.text-secondary;
             font-size: 12px;
             horizontal-alignment: center;

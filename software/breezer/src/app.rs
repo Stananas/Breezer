@@ -1050,14 +1050,15 @@ fn run_gui(update_applied: bool) -> Result<()> {
                         let error_tpl =
                             i18n.t_args("playlist.tracks.error", &[("error", "{error}")]);
                         tokio::spawn(async move {
-                            match api2.playlist_tracks(&pid).await {
-                                Ok(tracks) => {
-                                    let urls: Vec<String> = tracks
+                            match api2.playlist_tracks_page(&pid, 0, 20).await {
+                                Ok(first) => {
+                                    // Show the first page instantly…
+                                    let urls: Vec<String> = first
                                         .iter()
                                         .map(|t| t.album.cover_medium.clone())
                                         .collect();
                                     covers2.ensure(&urls).await;
-                                    let cards: Vec<TrackCard> = tracks
+                                    let first_cards: Vec<TrackCard> = first
                                         .into_iter()
                                         .map(|t| TrackCard {
                                             id: t.id as i32,
@@ -1068,10 +1069,8 @@ fn run_gui(update_applied: bool) -> Result<()> {
                                             duration: t.duration as f32,
                                         })
                                         .collect();
-                                    let count = cards.len();
-                                    let total_secs: u32 = cards.iter().map(|c| c.duration as u32).sum();
                                     if let Ok(mut g) = lc.lock() {
-                                        *g = cards.clone();
+                                        *g = first_cards.clone();
                                     }
                                     let _ = tx
                                         .send(Evt::View {
@@ -1079,6 +1078,38 @@ fn run_gui(update_applied: bool) -> Result<()> {
                                             title: title.clone(),
                                         })
                                         .await;
+                                    let _ = tx.send(Evt::Results(first_cards)).await;
+                                    let _ = tx.send(Evt::Status(String::new())).await;
+                                    // …then fetch the rest in the background.
+                                    let cards: Vec<TrackCard> = match api2.playlist_tracks(&pid).await {
+                                        Ok(tracks) => {
+                                            let urls: Vec<String> = tracks
+                                                .iter()
+                                                .map(|t| t.album.cover_medium.clone())
+                                                .collect();
+                                            covers2.ensure(&urls).await;
+                                            tracks
+                                                .into_iter()
+                                                .map(|t| TrackCard {
+                                                    id: t.id as i32,
+                                                    title: t.title,
+                                                    artist: t.artist.name,
+                                                    album: t.album.title,
+                                                    cover_url: t.album.cover_medium,
+                                                    duration: t.duration as f32,
+                                                })
+                                                .collect()
+                                        }
+                                        Err(e) => {
+                                            log::warn!("playlist (rest) failed: {e}");
+                                            return;
+                                        }
+                                    };
+                                    let count = cards.len();
+                                    let total_secs: u32 = cards.iter().map(|c| c.duration as u32).sum();
+                                    if let Ok(mut g) = lc.lock() {
+                                        *g = cards.clone();
+                                    }
                                     let _ = tx.send(Evt::Results(cards)).await;
                                     let _ = tx
                                         .send(Evt::Status(

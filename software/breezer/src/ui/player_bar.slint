@@ -18,11 +18,15 @@ export component PlayerBar inherits Rectangle {
     in property <TrackInfo> current-track;
     in property <bool> shuffle-on;
     in property <int> repeat-mode;
+    in property <float> ui-zoom;
     callback toggle-requested();
     callback prev-requested();
     callback next-requested();
     callback shuffle-requested();
     callback repeat-requested();
+    callback zoom-in-requested();
+    callback zoom-out-requested();
+    callback zoom-reset-requested();
     callback seek-requested(float);
     callback volume-requested(float);
 
@@ -86,7 +90,7 @@ export component PlayerBar inherits Rectangle {
     // CENTER — transport row + duration slider row
     // ------------------------------------------------------------------
     Rectangle {
-        x: 312px + (root.width - 312px - 176px - 188px) / 2;
+        x: 312px + (root.width - 312px - 308px - 188px) / 2;
         y: 10px;
         width: 188px;
         height: 44px;
@@ -192,10 +196,10 @@ export component PlayerBar inherits Rectangle {
     Rectangle {
         x: 312px;
         y: 62px;
-        width: root.width - 312px - 176px;
+        width: root.width - 312px - 308px;
         height: 26px;
         Rectangle {
-            x: (root.width - 312px - 176px - min(root.width - 312px - 176px - 108px, 440px) - 108px) / 2;
+            x: (root.width - 312px - 308px - min(root.width - 312px - 308px - 108px, 440px) - 108px) / 2;
             y: 0px;
             width: 42px;
             height: 26px;
@@ -211,9 +215,9 @@ export component PlayerBar inherits Rectangle {
             }
         }
         BreezerSlider {
-            x: (root.width - 312px - 176px - min(root.width - 312px - 176px - 108px, 440px) - 108px) / 2 + 54px;
+            x: (root.width - 312px - 308px - min(root.width - 312px - 308px - 108px, 440px) - 108px) / 2 + 54px;
             y: 0px;
-            width: min(root.width - 312px - 176px - 108px, 440px);
+            width: min(root.width - 312px - 308px - 108px, 440px);
             height: 26px;
             palette: root.palette;
             minimum: 0;
@@ -222,7 +226,7 @@ export component PlayerBar inherits Rectangle {
             changed(v) => root.seek-requested(v);
         }
         Rectangle {
-            x: (root.width - 312px - 176px - min(root.width - 312px - 176px - 108px, 440px) - 108px) / 2 + 54px + min(root.width - 312px - 176px - 108px, 440px) + 12px;
+            x: (root.width - 312px - 308px - min(root.width - 312px - 308px - 108px, 440px) - 108px) / 2 + 54px + min(root.width - 312px - 308px - 108px, 440px) + 12px;
             y: 0px;
             width: 42px;
             height: 26px;
@@ -240,8 +244,92 @@ export component PlayerBar inherits Rectangle {
     }
 
     // ------------------------------------------------------------------
-    // RIGHT — volume + visible tooltip
+    // RIGHT — zoom buttons + volume + visible tooltip
     // ------------------------------------------------------------------
+    Rectangle {
+        x: root.width - 160px - 148px;
+        y: 0px;
+        width: 148px;
+        height: 100%;
+        Rectangle {
+            x: 6px;
+            y: (root.height - 28px) / 2;
+            width: 28px;
+            height: 28px;
+            border-radius: root.palette.radius;
+            background: zim-ta.has-hover ? root.palette.surface : root.palette.surface;
+            zim-ta := TouchArea {
+                clicked => root.zoom-in-requested();
+                mouse-cursor: pointer;
+            }
+            Text {
+                text: "+";
+                width: 100%;
+                height: 100%;
+                horizontal-alignment: center;
+                vertical-alignment: center;
+                color: root.palette.text;
+                font-size: 15px;
+                font-weight: 800;
+            }
+        }
+        Text {
+            x: 40px;
+            y: 0px;
+            width: 50px;
+            height: 100%;
+            text: Math.round(root.ui-zoom * 100.0) + "%";
+            horizontal-alignment: center;
+            vertical-alignment: center;
+            color: root.palette.text-secondary;
+            font-size: 11px;
+            font-weight: 700;
+        }
+        Rectangle {
+            x: 96px;
+            y: (root.height - 28px) / 2;
+            width: 28px;
+            height: 28px;
+            border-radius: root.palette.radius;
+            background: root.palette.surface;
+            zom-ta := TouchArea {
+                clicked => root.zoom-out-requested();
+                mouse-cursor: pointer;
+            }
+            Text {
+                text: "−";
+                width: 100%;
+                height: 100%;
+                horizontal-alignment: center;
+                vertical-alignment: center;
+                color: root.palette.text;
+                font-size: 15px;
+                font-weight: 800;
+            }
+        }
+        Rectangle {
+            x: 126px;
+            y: (root.height - 28px) / 2;
+            width: 16px;
+            height: 28px;
+            zr-ta := TouchArea {
+                clicked => root.zoom-reset-requested();
+                mouse-cursor: pointer;
+            }
+            Text {
+                text: "0";
+                width: 100%;
+                height: 100%;
+                horizontal-alignment: center;
+                vertical-alignment: center;
+                color: root.palette.text-secondary;
+                font-size: 11px;
+                font-weight: 700;
+            }
+        }
+    }
+
+    // Volume
     Rectangle {
         x: root.width - 160px;
         y: 0px;
